@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-package = "setuptools.build_meta"
+
+[project]
+name = "mastercam_pdm"
+version = "0.1.0"
+description = "CNC Program Analysis & Historical Data Management"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = ["pytest"]
