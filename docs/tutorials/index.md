@@ -53,9 +53,9 @@ Concepts repeat at increasing depth:
 
 ## Progress Tracker
 
-- [x] Phase 0: Foundations (T00-T02)
-- [ ] Phase 1: Your Domain (T03-T07)
-- [ ] Phase 2: Storage (T08-T10)
+- [x] Phase 0: Foundations (T00-T02) ✅
+- [x] Phase 1: Your Domain (T03-T07) ✅
+- [x] Phase 2: Storage (T08-T10) ✅
 - [ ] Phase 3: Historical (T11-T14)
 - [ ] Phase 4: Intelligence (T15-T16)
 - [ ] Phase 5: UI (T17-T18)

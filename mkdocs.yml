@@ -20,9 +20,21 @@ nav:
   - BRD: brd.md
   - "🎯 Spiral Tutorials":
     - Overview: tutorials/index.md
-    - "T00: I Need a Place to Work": tutorials/00-setup.md
-    - "T01: What's in This XML?": tutorials/01-xml-exploration.md
-    - "T02: How Do I Know It Works?": tutorials/02-first-test.md
+    - "Phase 0: Foundations":
+      - "T00: I Need a Place to Work": tutorials/00-setup.md
+      - "T01: What's in This XML?": tutorials/01-xml-exploration.md
+      - "T02: How Do I Know It Works?": tutorials/02-first-test.md
+    - "Phase 1: Your Domain":
+      - "T03: What Data Do I Need?": tutorials/03-domain-modeling.md
+      - "T04: Model an Operation": tutorials/04-operation-model.md
+      - "T05: Parse Operations": tutorials/05-parse-operations.md
+      - "T06: Validate Errors": tutorials/06-validation-errors.md
+      - "T07: Validate Warnings": tutorials/07-validation-warnings.md
+    - "Phase 2: Storage":
+      - "T08: Database Storage": tutorials/08-database-storage.md
+      - "T08.5: 💀 Bad JSON Path": tutorials/08-5-bad-json-path.md
+      - "T09: Tool Relationships": tutorials/09-tool-relationships.md
+      - "T10: Parts Metadata": tutorials/10-parts-metadata.md
   - Module 0 - Foundations:
     - Overview: module-00-foundations/index.md
     - "00: Project Anatomy": module-00-foundations/00-project-anatomy.md
