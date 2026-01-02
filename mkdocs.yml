@@ -1,0 +1,71 @@
+site_name: Mastercam PDM Tutorials
+site_description: Learn software engineering by building a real application
+site_author: CNC Programmer Learning Journey
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: indigo
+    accent: amber
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Progress: progress.md
+  - BRD: brd.md
+  - "🎯 Spiral Tutorials":
+    - Overview: tutorials/index.md
+    - "T00: I Need a Place to Work": tutorials/00-setup.md
+    - "T01: What's in This XML?": tutorials/01-xml-exploration.md
+    - "T02: How Do I Know It Works?": tutorials/02-first-test.md
+  - Module 0 - Foundations:
+    - Overview: module-00-foundations/index.md
+    - "00: Project Anatomy": module-00-foundations/00-project-anatomy.md
+    - "01: File Picker & Config": module-00-foundations/01-file-picker-config.md
+    - "02: First XML Parse": module-00-foundations/02-first-xml-parse.md
+    - "03: Dataclasses": module-00-foundations/03-dataclasses.md
+    - "04: First Test": module-00-foundations/04-first-test.md
+  - Module 1 - Parsing & Database:
+    - Overview: module-01-parsing/index.md
+    - "05: Tool Type Hierarchy": module-01-parsing/05-tool-type-hierarchy.md
+    - "06: SQLite Basics": module-01-parsing/06-sqlite-basics.md
+    - "07: Simple Web GUI": module-01-parsing/07-simple-web-gui.md
+  - Module 2 - Validation:
+    - Overview: module-02-validation/index.md
+    - "08: Tool Consistency": module-02-validation/08-tool-consistency.md
+  - Module 3 - Advanced Validation:
+    - Overview: module-03-advanced/index.md
+    - "09: Range & Regex Validation": module-03-advanced/09-range-regex-validation.md
+    - "10: Validation Pipeline": module-03-advanced/10-validation-pipeline.md
+    - "11: Config-Driven Rules": module-03-advanced/11-config-driven-rules.md
+  - Module 4 - Integration & Output:
+    - Overview: module-04-integration/index.md
+    - "12: End-to-End Flow": module-04-integration/12-end-to-end-flow.md
+    - "13: Export System": module-04-integration/13-export-system.md
+    - "14: CLI Interface": module-04-integration/14-cli-interface.md
+  - Reference:
+    - "🧠 Engineering Mindset": reference/engineering-mindset.md
+    - Software Engineering Concepts: reference/software-engineering-concepts.md
+    - Design Patterns: reference/patterns.md
+    - Glossary: reference/glossary.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
