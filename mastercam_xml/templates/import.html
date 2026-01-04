@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Import Part - MastercamXML</title>
+</head>
+
+</html>
+
+<body>
+    <h1>Import Part</h1>
+
+    <form method="POST" action="/import">
+        <label for="machine">Machine Number:</label>
+        <input type="text" id="machine" name="machine" value="{{default_machine}}" required>
+        <label for="filepath">XML File:</label>
+        <input type="text" id="filepath" name="filepath" placeholder="C:\path\to\file.xml" required>
+        <button type="submit">Import</button>
+
+    </form>
+    <a href="/">Back to Dashbaord</a>
+</body>

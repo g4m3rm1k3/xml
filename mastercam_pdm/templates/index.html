@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MastercamPDM{% endblock %}
+
+{% block content %}
+<section class="config-panel">
+    <h2>Configuration</h2>
+    <form action="{{ url_for('set_preferences') }}" method="POST" class="prefs-form">
+        <div class="field">
+            <label for="mastercam_version">Mastercam Version</label>
+            <select name="mastercam_version" id="mastercam_version">
+                {% for v in versions %}
+                <option value="{{ v }}" {{ 'selected' if prefs.mastercam_version==v }}>{{ v }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label for="default_machine">Default Machine #</label>
+            <input type="text" name="default_machine" id="default_machine" value="{{ prefs.default_machine or '' }}"
+                placeholder="e.g., 1, 5, 12">
+        </div>
+        <button type="submit">Save Preferences</button>
+    </form>
+</section>
+
+<section class="parts-section">
+    <div class="section-header">
+        <h2>Imported Parts</h2>
+        <a href="{{ url_for('import_part') }}" class="btn btn-primary">+ Import New</a>
+    </div>
+
+    {% if parts %}
+    <div class="parts-grid">
+        {% for part in parts %}
+        <a href="{{ url_for('part_detail', part_id=part.part_id) }}" class="part-card">
+            <h3>{{ part.part_name }}</h3>
+            <div class="part-meta">
+                <span class="badge">MC {{ part.mastercam_version }}</span>
+                <span class="badge badge-machine">Machine {{ part.machine or '?' }}</span>
+                <span class="badge">{{ part.op_count }} ops</span>
+            </div>
+            <p class="import-date">{{ part.import_date }}</p>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No parts imported yet.</p>
+        <a href="{{ url_for('import_part') }}" class="btn btn-primary">Import your first part</a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

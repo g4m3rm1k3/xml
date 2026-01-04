@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MastercamReport>
+    <Operations>
+        <Operation>
+            <Name>Face Mill Top</Name>
+            <CycleTime>2.5</CycleTime>
+        </Operation>
+        <Operation>
+            <Name>Rough Pocket</Name>
+            <CycleTime>8.3</CycleTime>
+        </Operation>
+    </Operations>
+    <Tools>
+        <Tool>
+            <Number>1</Number>
+            <Description>4" Face Mill</Description>
+        </Tool>
+    </Tools>
+</MastercamReport>

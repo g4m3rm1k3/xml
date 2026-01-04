@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}{{ assembly.name }} - MastercamPDM{% endblock %}
+
+{% block content %}
+<div class="part-header">
+    <a href="{{ url_for('assemblies') }}" class="back-link">← Back to Assemblies</a>
+    <h1>{{ assembly.name }}</h1>
+</div>
+
+<div class="assembly-grid">
+    <section class="assembly-info">
+        <h2>Assembly Details</h2>
+        <div class="info-card">
+            <dl class="assembly-specs">
+                <dt>Tool Name</dt>
+                <dd>{{ assembly.tool_name or '-' }}</dd>
+
+                <dt>Holder Name</dt>
+                <dd>{{ assembly.holder_name or '-' }}</dd>
+
+                <dt>Tool Type</dt>
+                <dd>{{ assembly.tool_type or '-' }}</dd>
+
+                <dt>Diameter</dt>
+                <dd>{{ assembly.diameter or '-' }}"</dd>
+
+                <dt>Code</dt>
+                <dd>{{ assembly.code or '-' }}</dd>
+            </dl>
+        </div>
+    </section>
+
+    <section class="assembly-usage">
+        <h2>Usage ({{ total_usage }} operations)</h2>
+
+        {% if parts_usage %}
+        {% for part_name, part_data in parts_usage.items() %}
+        <div class="usage-card">
+            <div class="usage-header">
+                <h3>{{ part_name }}</h3>
+                <span class="badge">{{ part_data.machine }}</span>
+            </div>
+
+            <table class="ops-table compact">
+                <thead>
+                    <tr>
+                        <th>Subprogram</th>
+                        <th>Operation</th>
+                        <th>Rotation</th>
+                        <th>Feed</th>
+                        <th>Speed</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in part_data.operations %}
+                    <tr>
+                        <td class="op-tool">{{ op.subprogram_number }}</td>
+                        <td>{{ op.name }}</td>
+                        <td class="rotation">{{ op.rotation or '-' }}</td>
+                        <td class="param">{{ op.feedrate or '-' }}</td>
+                        <td class="param">{{ op.spindle_speed or '-' }}</td>
+                        <td class="param">{{ op.cycle_time_seconds }}s</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <p>This assembly is not used in any imported parts.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

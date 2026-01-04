@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Import - MastercamPDM{% endblock %}
+
+{% block content %}
+<h1>Import XML File</h1>
+
+<section class="import-config">
+    <h2>Select Version</h2>
+    <form action="{{ url_for('set_preferences') }}" method="POST" class="prefs-form inline">
+        <select name="mastercam_version" onchange="this.form.submit()">
+            {% for v in versions %}
+            <option value="{{ v }}" {{ 'selected' if prefs.mastercam_version==v }}>Mastercam {{ v }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="default_machine" value="{{ prefs.default_machine or '' }}">
+    </form>
+</section>
+
+<section class="file-list">
+    <h2>XML Files</h2>
+    <p class="folder-path">📁 {{ folder }}</p>
+
+    {% if not folder_exists %}
+    <div class="error-state">
+        <p>⚠️ Folder does not exist. Make sure Mastercam {{ prefs.mastercam_version }} is installed.</p>
+    </div>
+    {% elif files %}
+    <form method="POST" class="import-form">
+        <input type="hidden" name="folder" value="{{ folder }}">
+
+        <div class="import-machine-field">
+            <label for="machine">Machine # for this import:</label>
+            <input type="text" name="machine" id="machine" value="{{ prefs.default_machine or '' }}"
+                placeholder="e.g., 1, 5, 12" required>
+            <span class="help-text">Same part on different machines = separate imports</span>
+        </div>
+
+        <div class="file-grid">
+            {% for f in files %}
+            <label class="file-option">
+                <input type="radio" name="filename" value="{{ f }}" {% if loop.first %}checked{% endif %}>
+                <div class="file-card">
+                    <span class="file-icon">📄</span>
+                    <div class="file-info">
+                        <span class="file-name">{{ f }}</span>
+                    </div>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-large">Import Selected File</button>
+    </form>
+    {% else %}
+    <div class="empty-state">
+        <p>No XML files found in this folder.</p>
+        <p class="help-text">Generate setup sheets from Mastercam to see files here.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

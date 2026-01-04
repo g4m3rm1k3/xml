@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}{{ part.part_name }} - MastercamPDM{% endblock %}
+
+{% block content %}
+<div class="part-header">
+    <a href="{{ url_for('index') }}" class="back-link">← Back to Dashboard</a>
+    <h1>{{ part.part_name }}</h1>
+    <div class="part-badges">
+        <span class="badge badge-lg">MC {{ part.mastercam_version }}</span>
+        <span class="badge badge-lg">{{ part.machine }}</span>
+        <span class="badge badge-lg {{ 'badge-linear' if part.program_type == 'linear' else 'badge-subprogram' }}">
+            {{ part.program_type|title }}
+        </span>
+    </div>
+</div>
+
+<section class="operations-section">
+    <h2>Operations by Subprogram</h2>
+
+    {% for subprogram_num, ops in subprograms.items() %}
+    <div class="subprogram-group">
+        <div class="subprogram-header">
+            <h3>Subprogram {{ subprogram_num }}</h3>
+            <span class="badge">{{ ops|length }} operations</span>
+            {% if ops[0].rotation %}
+            <span class="rotation-badge">{{ ops[0].rotation }}</span>
+            {% endif %}
+        </div>
+
+        <table class="ops-table">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Operation</th>
+                    <th>Tool</th>
+                    <th>Assembly</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for op in ops %}
+                <tr>
+                    <td class="op-order">{{ op.op_order }}</td>
+                    <td class="op-name">{{ op.name }}</td>
+                    <td class="op-tool">T{{ op.tool_number }}</td>
+                    <td class="op-assembly">
+                        {% if op.assembly_name %}
+                        <span class="assembly-link">{{ op.assembly_name }}</span>
+                        {% else %}
+                        <span class="no-data">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="op-time">{{ op.cycle_time_seconds }}s</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+</section>
+{% endblock %}

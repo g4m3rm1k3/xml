@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>MastercamXML</title>
+</head>
+
+
+
+<body>
+    <h1>Imported Parts</h1>
+
+    <a href="/import">Import New Part</a>
+
+    <!-- Flash message-->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <p class="{{ category }}">{{ message }}</p>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {% if parts %}
+    <table>
+        <tr>
+            <th>Part Name</th>
+            <th>Machine</th>
+            <th>Imported</th>
+        </tr>
+        {% for part in parts %}
+        <tr>
+            <td>{{part.part_name}}</td>
+            <td>{{ part.machine or '-'}}</td>
+            <td>{{part.import_date}}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p>No parts imported yet.</p>
+    {% endif %}
+</body>
+
+</html>

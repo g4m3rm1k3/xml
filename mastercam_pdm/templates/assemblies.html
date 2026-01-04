@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Tool Assemblies - MastercamPDM{% endblock %}
+
+{% block content %}
+<h1>Tool Assemblies</h1>
+
+<nav class="filter-nav">
+    <a href="{{ url_for('assemblies') }}" class="{{ 'active' if not current_filter }}">All</a>
+    {% for t in types %}
+    <a href="{{ url_for('assemblies', type=t) }}" class="{{ 'active' if current_filter == t }}">{{ t }}</a>
+    {% endfor %}
+</nav>
+
+{% if assemblies %}
+<table>
+    <thead>
+        <tr>
+            <th>Assembly</th>
+            <th>Tool</th>
+            <th>Holder</th>
+            <th>Type</th>
+            <th>Diameter</th>
+            <th>Usage</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for a in assemblies %}
+        <tr onclick="location.href='{{ url_for('assembly_detail', assembly_id=a.assembly_id) }}'"
+            style="cursor:pointer;">
+            <td><a href="{{ url_for('assembly_detail', assembly_id=a.assembly_id) }}" class="assembly-link">{{ a.name
+                    }}</a></td>
+            <td>{{ a.tool_name or '-' }}</td>
+            <td>{{ a.holder_name or '-' }}</td>
+            <td>{{ a.tool_type or '-' }}</td>
+            <td>{{ a.diameter or '-' }}</td>
+            <td><span class="badge">{{ a.usage_count }} ops</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <p>No assemblies found{% if current_filter %} for type "{{ current_filter }}"{% endif %}.</p>
+</div>
+{% endif %}
+{% endblock %}

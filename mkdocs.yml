@@ -18,7 +18,78 @@ nav:
   - Home: index.md
   - Progress: progress.md
   - BRD: brd.md
-  - "🎯 Spiral Tutorials":
+  - "🎓 SE Apprenticeship":
+    - Overview: se-tutorials/index.md
+    - "Phase 0: Foundation":
+      - "00: Code Monkey vs Engineer": se-tutorials/phase-0/00-code-monkey-vs-engineer.md
+      - "01: Domain Discovery": se-tutorials/phase-0/01-domain-discovery.md
+      - "02: Vertical Slicing": se-tutorials/phase-0/02-vertical-slicing.md
+    - "Phase 1: Dashboard":
+      - "01: Design Session": se-tutorials/phase-1/01-design-session.md
+      - "02: Interface Design": se-tutorials/phase-1/02-interface-design.md
+      - "03: Test First": se-tutorials/phase-1/03-test-first.md
+      - "04: Implementation": se-tutorials/phase-1/04-implementation.md
+      - "05: Refactor": se-tutorials/phase-1/05-refactor.md
+      - "06: Integration": se-tutorials/phase-1/06-integration.md
+      - "07: Reflection": se-tutorials/phase-1/07-reflection.md
+    - "Phase 2: File Listing":
+      - "01: Design Session": se-tutorials/phase-2/01-design-session.md
+      - "02: Interface Design": se-tutorials/phase-2/02-interface-design.md
+      - "03: Test First": se-tutorials/phase-2/03-test-first.md
+      - "04: Implementation": se-tutorials/phase-2/04-implementation.md
+      - "05: Refactor": se-tutorials/phase-2/05-refactor.md
+      - "06: Integration": se-tutorials/phase-2/06-integration.md
+      - "07: Reflection": se-tutorials/phase-2/07-reflection.md
+    - "Phase 3: XML Parsing":
+      - "01: The Decision": se-tutorials/phase-3/01-the-decision.md
+      - "02: Coupling Problem": se-tutorials/phase-3/02-coupling-problem.md
+      - "03: Testing Dilemma": se-tutorials/phase-3/03-testing-dilemma.md
+      - "04: Error Handling": se-tutorials/phase-3/04-error-handling.md
+      - "05: Build It": se-tutorials/phase-3/05-build-it.md
+      - "06: Consequences": se-tutorials/phase-3/06-consequences.md
+    - "Phase 4: Forms":
+      - "01: Routing Decision": se-tutorials/phase-4/01-routing-decision.md
+      - "02: State Problem": se-tutorials/phase-4/02-state-problem.md
+      - "03: More Parsing": se-tutorials/phase-4/03-more-parsing.md
+      - "04: Build It": se-tutorials/phase-4/04-build-it.md
+      - "05: Consequences": se-tutorials/phase-4/05-consequences.md
+    - "Phase 5: Domain Models":
+      - "01: Understanding Data": se-tutorials/phase-5/01-understanding-data.md
+      - "02: Modeling Decisions": se-tutorials/phase-5/02-modeling-decisions.md
+      - "03: Relationships": se-tutorials/phase-5/03-relationships.md
+      - "04: Build It": se-tutorials/phase-5/04-build-it.md
+      - "05: Consequences": se-tutorials/phase-5/05-consequences.md
+    - "Phase 6: Linear vs Subprogram":
+      - "01: Polymorphism": se-tutorials/phase-6/01-polymorphism.md
+      - "02: Detection": se-tutorials/phase-6/02-detection.md
+      - "03: Strategy Pattern": se-tutorials/phase-6/03-strategy.md
+      - "04: Build It": se-tutorials/phase-6/04-build-it.md
+      - "05: Consequences": se-tutorials/phase-6/05-consequences.md
+    - "Phase 7: Tool Assemblies":
+      - "01: Assembly Pattern": se-tutorials/phase-7/01-assembly-pattern.md
+      - "02: Value Objects": se-tutorials/phase-7/02-value-objects.md
+      - "03: Parsing Complexity": se-tutorials/phase-7/03-parsing-complexity.md
+      - "04: Build It": se-tutorials/phase-7/04-build-it.md
+      - "05: Consequences": se-tutorials/phase-7/05-consequences.md
+    - "Phase 8: Browse & Filter":
+      - "01: Query Problem": se-tutorials/phase-8/01-query-problem.md
+      - "02: Filter Patterns": se-tutorials/phase-8/02-filter-patterns.md
+      - "03: Linking Data": se-tutorials/phase-8/03-linking-data.md
+      - "04: Build It": se-tutorials/phase-8/04-build-it.md
+      - "05: Consequences": se-tutorials/phase-8/05-consequences.md
+    - "Phase 9: Edit Features":
+      - "01: Read vs Write": se-tutorials/phase-9/01-read-vs-write.md
+      - "02: Validation": se-tutorials/phase-9/02-validation.md
+      - "03: Form Handling": se-tutorials/phase-9/03-form-handling.md
+      - "04: Build It": se-tutorials/phase-9/04-build-it.md
+      - "05: Consequences": se-tutorials/phase-9/05-consequences.md
+    - "Phase 10: Document Generation":
+      - "01: Data vs Presentation": se-tutorials/phase-10/01-data-vs-presentation.md
+      - "02: Template Design": se-tutorials/phase-10/02-template-design.md
+      - "03: Print Styling": se-tutorials/phase-10/03-print-styling.md
+      - "04: Build It": se-tutorials/phase-10/04-build-it.md
+      - "05: Consequences": se-tutorials/phase-10/05-consequences.md
+  - "🎯 Spiral Tutorials (Legacy)":
     - Overview: tutorials/index.md
     - "Phase 0: Foundations":
       - "T00: I Need a Place to Work": tutorials/00-setup.md

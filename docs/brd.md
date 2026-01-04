@@ -6,21 +6,115 @@
 ## 1. Executive Summary
 
 ### 1.1 Purpose
-This system parses Mastercam-generated XML reports containing CNC program data (tools, operations, cycle times, assemblies) to create a comprehensive historical database. It validates data quality, tracks programming improvements over time, provides tool usage intelligence across parts, and generates customizable outputs via templates.
+This system parses Mastercam-generated XML reports to create a comprehensive manufacturing data platform. It serves multiple interconnected use cases: **Tool Assembly Intelligence** (understanding what assemblies exist, where they're used, how they perform), **NC File Building** (generating main programs with proper sequencing), **Shop Floor Translation** (communicating operational data to machinists), and **Cost Reduction Analysis** (tracking parameter changes over time).
 
-### 1.2 Goals
+### 1.2 Primary Use Cases (Prioritized)
+
+1. **Tool Assembly Intelligence** *(Most Critical)*
+   - See what tool assemblies exist across the shop
+   - Understand where each assembly is used (which parts, machines, programs)
+   - Make informed decisions when selecting tools for new parts
+   - Tool assemblies are used on many parts; parts run on many machines
+
+2. **NC File Building**
+   - Generate main programs from XML data
+   - Subprogram numbers, tool calls, sequence numbers already exist in XML
+   - **Order matters**: tool call sequence must be preserved
+   - Handle duplicate tool calls correctly (different sequence numbers for repeat calls)
+   - Include tool prep data (T-word, M-codes) at proper locations
+
+3. **Operations Translation for Shop Floor**
+   - Translate programming data into operator-friendly format
+   - Answer: "What tool does what features?"
+   - Show feature relationships (e.g., "when you comp this tool, these features are affected")
+   - Enable successful part machining through clear communication
+
+4. **Cost Reduction Analysis**
+   - Track operation parameters over time
+   - Measure cycle time improvements between revisions
+   - Identify optimization opportunities through historical comparison
+
+5. **Tool Parameters by Toolpath Type**
+   - Answer: "What parameters does Tool X use on Contour vs Pocket vs Drill?"
+   - Compare feeds/speeds across different operation types for the same tool
+   - Identify optimal parameters per toolpath strategy
+
+6. **Tool Life Tracking**
+   - Track when a tool assembly started being used
+   - Monitor current state (how many parts cut, total cutting distance/time)
+   - Predict tool replacement needs based on usage history
+
+7. **Part Cycle Time by Machine**
+   - Same part runs on different machines with different programs
+   - Compare cycle times across machine types
+   - Understand machine-specific optimizations and constraints
+
+### 1.3 Goals
+- **Tool Assembly Visibility**: Searchable repository of tool assemblies with usage context
 - **Data Quality**: Parse and validate XML reports with clear error/warning feedback
 - **Historical Tracking**: Maintain version history of part programming to measure improvements
-- **Tool Intelligence**: Create searchable repository of tool usage, parameters, and part associations
+- **NC Generation**: Build main programs from XML data with correct sequencing
+- **Shop Floor Communication**: Generate operator-readable reports explaining tooling/features
 - **Process Standardization**: Provide starting parameters for tool selection based on historical success
 - **Traceability**: Track which machines/programmers use which tools on which parts
 - **Flexibility**: Generate custom outputs (HTML reports, NC programs, offset files) via Jinja templates
 
-### 1.3 Success Metrics
-- Reduce time to find "what tools were used on part X" from hours to seconds
+### 1.4 Success Metrics
+- Reduce time to find "what tool assemblies do we have for X operation type" from hours to seconds
+- Generate correct main programs from XML without manual transcription
 - Quantify cycle time improvements between programming iterations
 - Eliminate manual transcription of tool/operation data
 - Enable vendor tool changes with full impact analysis
+
+### 1.5 Learning Objectives (Code Monkey → Software Engineer)
+
+This project is also a **software engineering apprenticeship**. The goals are:
+
+| Goal | What It Means |
+|------|---------------|
+| **Make it right** | Code that works AND is correct by design |
+| **Make it extensible** | Adding features is enjoyable, not painful |
+| **Find bugs before users (TDD)** | Tests drive design, not just verify code |
+| **Change direction on the fly (Agile)** | Respond to new requirements without rewrites |
+| **Fast with good UI/UX** | Users enjoy using it, not just tolerate it |
+| **Domain decomposition** | Know how to break complex systems into manageable pieces |
+
+**What I want to learn:**
+- How to decompose a problem before coding
+- When to abstract and when not to
+- How to design for change
+- How to test effectively (not just cover lines)
+- How to make architecture decisions and justify them
+- How to recognize bad design before it becomes legacy
+
+### 1.6 Development Framework: Incremental Domain Vertical Slicing
+
+This app is built using **Incremental Domain Vertical Slicing (IDVS)**, not horizontal layers.
+
+**Principle:** Each iteration adds one complete capability, end-to-end, across all layers. Domains are not half-implemented. Other domains do not exist until needed.
+
+#### Correct vs Wrong Approach
+
+| ❌ Wrong (Horizontal) | ✅ Correct (Vertical) |
+|----------------------|----------------------|
+| Build all parsing first | Parse ONE thing, persist it, display it |
+| Build all validation next | Add validation when that thing needs it |
+| Build all storage next | Extend to next domain only when forced |
+| User sees value at the end | User sees value every iteration |
+
+#### Iteration Sequence (Example)
+
+| Iteration | Vertical Slice | Domains | User Value |
+|-----------|---------------|---------|------------|
+| 1 | Version dropdown → show XML files | UI | User sees files |
+| 2 | Parse XML headers → update display | UI + Parse | Meaningful file selection |
+| 3 | Parse part name → persist → display | Parse + DB + UI | Data persists |
+| 4 | Parse NC file names (subprograms) | Parse + DB + UI | NC files visible |
+| 5 | Handle linear programs (simulate names) | Parse (polymorphism emerges) | Both types work |
+| 6 | Parse tools → persist → display | Tools domain (NEW) | Tools visible |
+| 7 | Parse operations → link to tools | Operations domain extends Tools | Relationships |
+
+**Key insight:** Abstractions (like linear vs subprogram) appear when forced by use cases, not in advance.
 
 ---
 
@@ -46,12 +140,84 @@ This system parses Mastercam-generated XML reports containing CNC program data (
 - **Data Layer**: SQLite database with multi-user concurrent access
 - **Template Engine**: Jinja2 for HTML reports and NC file generation
 
-### 2.2 Technology Stack Recommendation
-- **Language**: Python (excellent XML parsing, SQLite support, Jinja2, testing frameworks)
-- **GUI**: Web frontend (Flask/FastAPI + React) OR desktop (PyQt6/Tkinter)
-- **Database**: SQLite with WAL mode (Write-Ahead Logging for concurrent access)
-- **Testing**: pytest with test coverage reporting
-- **Version Control**: Git with feature branch workflow
+### 2.2 Technology Stack
+
+| Component | Choice | Rationale |
+|-----------|--------|----------|
+| **Language** | Python | XML parsing, SQLite, Jinja2, pytest |
+| **Web Framework** | Flask | Simple, well-documented, no heavy dependencies |
+| **Database** | SQLite + SQLAlchemy | SQLite for simplicity, ORM for productivity |
+| **Database Access** | SQLAlchemy ORM + raw SQL | Learn both; ORM for convenience, raw SQL for understanding |
+| **CSS** | Vanilla (Flexbox/Grid) | No Node.js available at work |
+| **Templates** | Jinja2 | Already proven in existing workflow |
+| **Testing** | pytest | Standard, well-supported |
+| **Migrations** | Alembic | Version-controlled schema changes |
+
+> **Constraint**: No Node.js at work — Tailwind/modern CSS build tools unavailable. Using vanilla CSS with Flexbox/Grid.
+
+### 2.3 Domain Architecture (Avoiding the "Big Ball of Mud")
+
+#### 2.3.1 The Problem
+This app has 7+ use cases all touching the same entities (Tools, Operations, Parts). Without structure, every change affects everything — the classic "Big Ball of Mud" anti-pattern.
+
+#### 2.3.2 Architectural Decision: Shared Kernel
+
+**We use a Shared Kernel approach** — one source of truth, no data duplication:
+
+```
+                    ┌──────────────────────────────┐
+                    │      SHARED KERNEL           │
+                    │  Tool, Operation, Part       │
+                    │  (one database, one schema)  │
+                    └──────────────┬───────────────┘
+                                   │
+       ┌───────────────────────────┼───────────────────────────┐
+       │           │               │               │           │
+       ▼           ▼               ▼               ▼           ▼
+   ┌───────┐   ┌───────┐      ┌───────┐      ┌───────┐    ┌───────┐
+   │ Tool  │   │  NC   │      │ Shop  │      │ Cost  │    │ Tool  │
+   │ Intel │   │ Build │      │ Floor │      │ Anlys │    │ Life  │
+   └───────┘   └───────┘      └───────┘      └───────┘    └───────┘
+```
+
+**Each context (use case) is a separate Python module** that imports only what it needs from the shared kernel:
+
+```python
+# core/models.py — Shared Kernel
+class Tool: ...
+class Operation: ...
+class Part: ...
+
+# tool_intel/service.py — Uses Tool + Part only
+from core.models import Tool, Part
+
+# nc_builder/service.py — Uses Tool + Operation + Sequence
+from core.models import Tool, Operation
+
+# cost_analysis/service.py — Uses Operation + Part + History
+from core.models import Operation, Part
+```
+
+#### 2.3.3 Why Not Duplicate Data?
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Shared Kernel (chosen)** | No sync needed, single source of truth | Changes to core require coordination |
+| **Separate databases per context** | Independence, can evolve separately | Sync complexity, eventual consistency bugs |
+
+**Duplication would be appropriate if:**
+- Contexts needed to work offline independently
+- Very different performance needs (reporting vs operational)
+- Different teams owning different contexts
+
+**None of these apply here** — small team, single database, all contexts online together.
+
+#### 2.3.4 Keeping It Clean
+
+1. **Core module** (`core/`) owns entity definitions — all contexts import from here
+2. **Context modules** (`tool_intel/`, `nc_builder/`, etc.) are isolated — they don't import each other
+3. **No circular dependencies** — core knows nothing about contexts, contexts only depend on core
+4. **Shared Kernel changes are intentional** — modifying `core/models.py` affects all contexts (by design)
 
 ---
 
@@ -71,9 +237,19 @@ This system parses Mastercam-generated XML reports containing CNC program data (
    - Default network database path
 
 2. **File Selection Section**
-   - "Browse XML Files" button → opens file dialog filtered to `.xml`
-   - List/dropdown of available XML files in selected directory
-   - Preview pane showing file metadata (date, size, first few lines)
+   
+   > **Note**: XML filenames are not descriptive. The app must parse each file to extract meaningful identifiers.
+   
+   - **Default folder**: Auto-set based on selected Mastercam Version → shared reports folder
+   - **File list display** (parsed from XML content, not filename):
+     | Part Name | Machine Definition | Timestamp | Filename |
+     |-----------|-------------------|-----------|----------|
+     | 12345-A   | Haas VF-4         | 2026-01-03 13:45 | report_001.xml |
+     | 67890-B   | Doosan DNM-500   | 2026-01-03 11:20 | report_002.xml |
+   - **Sort order**: Newest first (by file timestamp)
+   - **Default selection**: Most recent file auto-selected
+   - **Multi-select support**: Allow selecting multiple reports for batch import (historical data migration)
+   - **Refresh button**: Re-scan folder and re-parse XML headers
 
 3. **Parse & Validate Section**
    - "Parse Report" button (primary action)
@@ -192,35 +368,53 @@ CREATE TABLE operations (
 );
 ```
 
-**Tools Table**
+**Tools Table** (the cutting tool itself)
 ```sql
 CREATE TABLE tools (
     tool_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tool_number INTEGER NOT NULL,
-    tool_description TEXT,
-    tool_type TEXT,  -- endmill, drill, reamer, etc.
-    diameter REAL,
+    name TEXT NOT NULL,              -- e.g., "1/2 EM 5FL 1LOC"
+    diameter REAL NOT NULL,
     flutes INTEGER,
+    loc REAL,                        -- length of cut
+    tool_type TEXT,                  -- endmill, drill, reamer, etc.
     manufacturer TEXT,
-    part_number TEXT,  -- manufacturer part number
+    manufacturer_part_number TEXT,
     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
-**Tool_Usage Table** (junction table linking tools to operations)
+**Holders Table** (tool holders in the shop)
 ```sql
-CREATE TABLE tool_usage (
-    usage_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tool_id INTEGER NOT NULL,
-    operation_id INTEGER NOT NULL,
-    chip_load REAL,
-    engagement_radial REAL,
-    engagement_axial REAL,
-    surface_speed REAL,
-    FOREIGN KEY (tool_id) REFERENCES tools(tool_id),
-    FOREIGN KEY (operation_id) REFERENCES operations(operation_id)
+CREATE TABLE holders (
+    holder_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,              -- e.g., "PG25-5"
+    holder_type TEXT,                -- PG25, CAT40, HSK63, etc.
+    manufacturer TEXT,
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+**Tool_Assemblies Table** (Tool + Holder + Stickout = Physical cabinet item)
+```sql
+CREATE TABLE tool_assemblies (
+    assembly_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ta_number TEXT NOT NULL UNIQUE,  -- e.g., "TA5068"
+    tool_id INTEGER NOT NULL,
+    holder_id INTEGER NOT NULL,
+    stickout REAL NOT NULL,
+    description TEXT,
+    created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tool_id) REFERENCES tools(tool_id),
+    FOREIGN KEY (holder_id) REFERENCES holders(holder_id)
+);
+```
+
+> **Domain Concept: Tool Assembly (TA)**  
+> A TA is a physical item in the tool cabinet. Programmers should reuse existing TAs rather than create duplicates.
+
+**Duplicate Detection:**
+Before creating new TA, check if one exists with same tool specs + holder + stickout. If match found → WARNING to user.
+
 
 **Subprograms Table**
 ```sql
@@ -305,13 +499,107 @@ Based on Mastercam reports, typical structure:
 </MastercamReport>
 ```
 
-#### 3.4.2 Parser Requirements
+#### 3.4.2 Program Structure (Milling)
+
+**Subprogram Numbering Scheme:**
+```
+Format: [op][instance][tool]
+
+Instance changes with each rotation (retract between rotations)
+
+Tool 10 Examples:
+├── 1110 = Op 1, Instance 1 (B0), Tool 10
+├── 1210 = Op 1, Instance 2 (B-90), Tool 10
+├── 2110 = Op 2, Instance 1 (B0), Tool 10
+└── 2210 = Op 2, Instance 2 (B-90), Tool 10
+
+Note: All work at one rotation is combined (no breaking up 3-axis toolpaths)
+```
+
+**Sequence Numbers (N-codes):**
+```
+N-codes track tool call order in the program:
+├── N10 = Tool 10, first call
+├── N210 = Tool 10, second call (different sequence number!)
+└── Prevents duplicate sequence numbers in program
+```
+
+**Linear Programs vs Subprograms:**
+| Type | Has Subprograms | Has Rotations | Has N-codes |
+|------|-----------------|---------------|-------------|
+| Subprogram-based | Yes | Yes | Yes |
+| Linear | No | Yes | Yes |
+
+> **Parser Requirement:** Linear programs must be treated as if they were subprograms.  
+> The parser should generate virtual subprogram numbers based on tool + rotation + operation sequence.
+
+**NC Main Program Structure (Reference):**
+```gcode
+(Part: 12345-A Rev: 1)
+(General structure - coolant, rotation, etc. details omitted)
+
+N10                    ; Sequence number = tool number
+T10M6                  ; Tool change to Tool 10
+T22                    ; Precall next tool (loads while current runs)
+M98 P1110              ; Subprogram: Op1 Inst1 T10
+G53 Z0                 ; Retract
+M98 P1210              ; Subprogram: Op1 Inst2 T10
+G53 Z0                 ; Retract
+M98 P3110              ; Subprogram: Op3 Inst1 T10
+G53 Z0                 ; Retract
+M01                    ; Optional stop between tools
+
+N22                    ; Sequence number = tool number
+T22M6                  ; Tool change
+T43                    ; Precall next tool
+M98 P1122              ; Subprogram: Op1 Inst1 T22
+G53 Z0
+M98 P2122              ; Subprogram: Op2 Inst1 T22
+G53 Z0
+M98 P2222              ; Subprogram: Op2 Inst2 T22
+G53 Z0
+M98 P2322              ; Subprogram: Op2 Inst3 T22
+G53 Z0
+M98 P3122              ; Subprogram: Op3 Inst1 T22
+G53 Z0
+M01
+
+N34...
+```
+
+**Key elements:**
+- `N[tool]` = Sequence number equals tool number
+- `T[tool]M6` = Tool change
+- `T[next]` = Precall (tool prep while current runs)
+- `M98 P[op][inst][tool]` = Subprogram call
+- `G53 Z0` = Retract between subprograms
+- `M01` = Optional stop between tool sections
+
+#### 3.4.3 Machine Type Extensibility
+
+**Current Focus:** Milling (3-5 axis VMC/HMC)
+
+**Future Expansion:** Lathe
+| Lathe Feature | Complexity |
+|---------------|------------|
+| Upper/Lower turrets | Different tool positions per turret |
+| Main/Sub spindles | Operations on different spindles |
+| B-axis heads | Rotary tool positioning |
+| 3-turret machines | Even more tool positions |
+
+> **Design Requirement:** The app must be structured so that adding lathe support later does not require rewriting milling logic.  
+> This means:
+> - Machine type is a first-class entity
+> - Parser strategy is pluggable per machine type
+> - UI components are reusable across machine types
+
+#### 3.4.4 Parser Requirements
 - **Library**: Use `xml.etree.ElementTree` (built-in) or `lxml` (more robust)
 - **Error Handling**: Gracefully handle malformed XML with specific error messages
 - **Flexibility**: Support multiple Mastercam versions with version-specific parsers
 - **Performance**: Stream parsing for large files (>10MB)
 
-#### 3.4.3 Parser Design Pattern
+#### 3.4.5 Parser Design Pattern
 ```python
 class MastercamXMLParser:
     def __init__(self, version: str):
@@ -331,8 +619,21 @@ class MastercamXMLParser:
 
 ### 3.5 Concurrent Database Access Requirements
 
-#### 3.5.1 SQLite Configuration
-Enable WAL mode for concurrent reads/writes:
+#### 3.5.1 Architecture
+**Each user runs their own instance of the app**, all accessing a shared SQLite database on a network drive.
+
+```
+┌──────────────┐     ┌────────────────────────────────────────┐
+│ User A's App │────▶│                                        │
+└──────────────┘     │  Shared Network Drive                  │
+┌──────────────┐     │  ├── database.db (SQLite)              │
+│ User B's App │────▶│  └── database.db.lock (lock file)      │
+└──────────────┘     │                                        │
+                     └────────────────────────────────────────┘
+```
+
+#### 3.5.2 SQLite Configuration
+Enable WAL mode for concurrent reads + single writer:
 ```python
 import sqlite3
 conn = sqlite3.connect('database.db')
@@ -340,32 +641,73 @@ conn.execute('PRAGMA journal_mode=WAL')  # Write-Ahead Logging
 conn.execute('PRAGMA busy_timeout=5000')  # Wait 5s on lock
 ```
 
-#### 3.5.2 Access Patterns
-- **Writes**: Infrequent (only when saving parsed report) - lock acceptable
-- **Reads**: Frequent (queries, historical lookups) - must not block
-- **Shared Network Drive**: Use file locking, handle network disconnects gracefully
+#### 3.5.3 Lock File Strategy
 
-#### 3.5.3 Conflict Resolution
-- Use transactions with retry logic
-- Optimistic locking: Check `last_modified` timestamp before update
-- If write fails after retries, queue operation and notify user
+| Step | Action |
+|------|--------|
+| 1. Before write | Check if `database.db.lock` exists |
+| 2. If locked | Show UI message: "Database is being written by another user, please wait..." |
+| 3. If not locked | Create lock file with timestamp + user info |
+| 4. Perform write | Execute database transaction |
+| 5. After write | Delete lock file |
+| 6. On crash | Stale lock files (older than X minutes) are auto-removed on next app start |
 
-### 3.6 Template Generation Requirements
+**Lock file contents** (for debugging):
+```
+locked_by: COMPUTER_NAME\username
+locked_at: 2026-01-03T13:35:00
+operation: saving_part_report
+```
 
-#### 3.6.1 Template Types
-1. **HTML Operation Report**
-   - Variables: `operations`, `total_cycle_time`, `part_number`, `tools`
-   - Use case: Human-readable summary for shop floor
+#### 3.5.4 Access Patterns
+- **Writes**: Infrequent (only when saving parsed report) — lock acceptable
+- **Reads**: Frequent (queries, historical lookups) — never blocked, WAL allows concurrent reads
+- **Simultaneous writes**: Second user sees "please wait" until first completes
 
-2. **NC Main Program**
-   - Variables: `subprograms`, `tool_changes`, `start_position`
-   - Use case: Generate skeleton program with tool calls
+#### 3.5.5 Conflict Resolution
+- Lock file prevents simultaneous writes (no merge needed)
+- If lock is stale (app crashed), next user clears it and proceeds
+- Optional: If write fails after retries, offer to save to temp file and merge later
 
-3. **Offset Program**
-   - Variables: `tools` with `offset_number`, `diameter`, `length`
-   - Use case: Auto-generate offset setter program
+### 3.6 Template Generation Requirements (Proven Capability)
 
-#### 3.6.2 Template Engine Integration
+> **Note**: Jinja2 templates are already working in the current implementation. This is a proven pattern that enables custom outputs without code changes.
+
+#### 3.6.1 Core Principle
+**Templates decouple output format from business logic.** New NC formats, documents, or reports can be created by adding/editing templates — no code changes required. This is critical for:
+- Machine-specific NC formats (different post requirements)
+- Customer-specific documentation
+- Evolving shop floor needs
+
+#### 3.6.2 Template Types (Current + Planned)
+
+| Template Type | File Extension | Use Case | Status |
+|---------------|----------------|----------|--------|
+| NC Main Program | `.nc`, `.txt` | Generate main programs with tool calls, sequence numbers | ✅ Working |
+| Shop Floor Documents | `.html`, `.txt` | Operator instructions, setup sheets | ✅ Working |
+| Excel Sheets | `.csv`, `.xlsx` (via template) | Tool lists, parameter summaries, reports | ✅ Working |
+| **JSON Export** | `.json` | Data export for static HTML viewer (see below) | Planned |
+| Offset Program | `.nc` | Auto-generate offset setter program | Planned |
+| HTML Reports | `.html` | Visual summaries for review | Planned |
+
+> **JSON Export for Static Viewer**  
+> Current workflow bakes data into generated HTML — any HTML update requires full regeneration.  
+> New approach: Export `part_data.json` that a static `viewer.html` reads via JavaScript.  
+> - Update HTML template independently of data  
+> - Operations scroll on left, images load on right based on subprogram number  
+> - Images cached by browser, data persists per part
+
+#### 3.6.3 Template Variables (Available Context)
+```
+operations     - List of all operations with parameters
+tools          - List of tool assemblies with attributes
+subprograms    - Ordered list of subprogram calls
+tool_changes   - Sequence of tool change events (order preserved)
+part_info      - Part number, material, machine, etc.
+metadata       - Programmer, date, revision, etc.
+```
+
+#### 3.6.4 Template Engine Integration
 ```python
 from jinja2 import Environment, FileSystemLoader
 
@@ -378,11 +720,37 @@ output = template.render(
 )
 ```
 
-#### 3.6.3 Template Management
+#### 3.6.5 Template Management
 - Store templates in database OR filesystem (preference: database for versioning)
 - Provide default templates in application
-- Allow users to create/edit/delete custom templates
+- Allow power users to create/edit/delete custom templates
 - Version control templates with changelog
+
+#### 3.6.6 Template UX Requirements (End User Experience)
+
+> **Goal**: Users select templates by *purpose*, not by filename. Template internals are invisible to typical users.
+
+**User Tiers:**
+
+| User Type | Template Interaction |
+|-----------|---------------------|
+| Operator/Programmer | Click "Generate NC File" or "Create Setup Sheet" — template auto-selected |
+| Power User | Choose from dropdown of template *names* (not filenames), preview before generating |
+| Admin/Developer | Create, edit, delete templates; manage template library |
+
+**Design Principles:**
+1. **Purpose-driven selection**: User picks "Main Program for Haas VF-4", not `haas_vf4_main.j2`
+2. **Smart defaults**: 80% of use cases work with built-in templates, no config needed
+3. **Hidden complexity**: Users never see `.j2` files, Jinja syntax, or template directory structure
+4. **Machine/context awareness**: App suggests appropriate templates based on current data (machine type, operation types, etc.)
+
+**Template Metadata:**
+Each template should have:
+- Display name (user-friendly)
+- Description (when to use this template)
+- Category (NC Program, Setup Sheet, Report, Export)
+- Target machine(s) (optional, for filtering)
+- Output file extension
 
 ---
 
@@ -818,6 +1186,7 @@ And I see the typical feeds and speeds
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-01-01 | Initial Draft | Complete BRD for CNC Analysis System |
+| 1.1 | 2026-01-03 | Updated | Added Primary Use Cases section: Tool Assembly Intelligence, NC File Building, Operations Translation, Cost Reduction Analysis |
 
 ---
 
