@@ -1,0 +1,6 @@
+{
+    "displayName": "Sample Flask App",
+    "description": "A minimal Flask backend for testing",
+    "version": "1.0.0",
+    "healthEndpoint": "/health"
+}

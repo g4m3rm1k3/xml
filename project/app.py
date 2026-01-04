@@ -1,14 +1,15 @@
-from flask import Flask, request
+from flask import Flask, request, redirect, url_for, render_template
 
 app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return "<h1>Hello</h1>"
+    return render_template("index.html", page_name="Index", page_num=2)
 
 @app.route("/home")
 def home():
-    return "<h1>Home</h1>"
+    number = request.args.get("number", default=0, type=int)
+    return render_template("home.html", number=number, data=[{"key": "value1"}, {"key": "value2"}, {"key": "value3"}])
 
 @app.route("/json")
 def json():
@@ -28,5 +29,18 @@ def query():
 def form():
     if request.method == "POST":
         user_input = request.form.get("user_input")
-        return f"{user_input} POSTed"
+        print(user_input)
+        return redirect(url_for("home"))
     return "<form method='POST'><input type='text' name='user_input'><input type='submit'/></form>"
+
+@app.route("/acceptjson")
+def acceptjson():
+    json_data = request.get_json()
+    api_input = json_data["mylist"]
+    hello = json_data["hello"]
+    return {"api_input": api_input, "hello": hello}
+
+@app.route("/error")
+def error():
+    a = 1/0
+    return "Error"

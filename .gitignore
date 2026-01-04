@@ -26,3 +26,22 @@ Thumbs.db
 
 # Local config (don't commit user preferences)
 # The actual config is stored in ~/.mastercam_pdm/
+
+node_modules/
+
+# Electron Builder output
+electron-host/dist/
+electron-host/node_modules/
+
+# PyInstaller output (in backends)
+electron-host/backends/*/dist/
+electron-host/backends/*/build/
+electron-host/backends/*/*.spec
+electron-host/backends/sample-app-built/
+
+# Keep source sample-app but ignore its build artifacts
+!electron-host/backends/sample-app/
+electron-host/backends/sample-app/dist/
+electron-host/backends/sample-app/build/
+electron-host/backends/sample-app/*.spec
+

@@ -1,0 +1,11 @@
+{% if number > 20 %}
+<p>{{number}} is greater than 20</p>
+{% elif number > 10 %}
+<p>{{number}} is greater than 10 but less than 20</p>
+{% else %}
+<p>{{number}} is less than 20</p>
+{% endif %}
+
+{% for item in data %}
+<h2>{{item}}</h2>
+{% endfor %}
