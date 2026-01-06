@@ -182,6 +182,26 @@ These may be considered for future versions based on user feedback.
 
 ---
 
+## Optional Enhancements
+
+The following are **optional dependencies** that enhance the platform but are not required for core functionality:
+
+### Tool/TA API Integration
+
+If the shop has an existing tool management system or TA (Tool Assembly) database with an API endpoint, the platform can integrate with it:
+
+| Feature | Benefit | Required? |
+|---------|---------|-----------|
+| Fetch TA details from external API | Rich tool information (holder, location, quantities) | No |
+| Display tool data alongside operations | Complete setup information | No |
+| Cache API responses | Performance, offline resilience | No |
+
+**Architecture:** A service layer combines database data with external API data, keeping repositories focused on local storage.
+
+**Fallback:** If the API is unavailable, the platform displays local data only with a warning.
+
+---
+
 ## Appendix: Screenshots
 
 *(To be added during development)*

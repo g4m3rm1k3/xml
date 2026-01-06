@@ -1,103 +1,47 @@
-# Iteration 1: The TypeScript Foundation
+# Iteration 1: The Foundation
 
-**What we're building:** A TypeScript project that defines a Part domain object with proper types, invariants, and tests — the foundation of a manufacturing data system.
+**What we're building:** An Express app that parses a Mastercam XML file, creates a Part domain object, persists it, and displays it.
 
-**Time to complete:** 4-5 hours (engineering + TypeScript learning)
-
-**Prerequisites:** 
-- Node.js 20+ installed
-- npm available
-- Basic JavaScript knowledge
-- Willingness to learn TypeScript as we go
-
----
-
-## Who This Is For
-
-You want to learn software engineering properly — not just "make it work" but understand **why** decisions are made. This tutorial teaches:
-
-1. **Software Engineering principles** — the same principles used at professional companies
-2. **TypeScript** — a typed superset of JavaScript
-3. **Both together** — because real engineering requires real tools
-
-We learn by building something real: a system to import and track Mastercam manufacturing files.
+**Time to complete:** 4-5 hours (engineering takes longer than hacking)
 
 ---
 
 ## Part 0: Engineering Foundation (Before We Write Code)
 
 Real software engineering starts **before code**. We define:
-
-1. What problem we're solving and why we made certain choices (**Decision Records**)
-2. What concepts exist in our domain (**Domain Model**)
-3. What rules must always be true (**Invariants**)
-4. What is allowed to depend on what (**Architecture Rules**)
-5. What will break when things change (**Change Scenarios**)
-6. What kinds of errors can happen (**Error Taxonomy**)
-7. Who owns what (**Ownership Boundaries**)
-8. What tests must pass before we write code (**TDD**)
-
-**Why not just start coding?**
-
-| Approach | What Happens |
-|----------|--------------|
-| Code first, think later | Works for small scripts. Falls apart at ~1000 lines. Bugs hide everywhere. |
-| Think first, code later | Takes longer initially. Scales to 100,000+ lines. Changes don't break everything. |
-
-We're learning the professional approach.
-
----
-
-### TypeScript vs Python: The Mental Shift
-
-Before we dive into engineering, let's understand our tool.
-
-| Aspect | Python | TypeScript |
-|--------|--------|------------|
-| **Type checking** | Runtime (duck typing) | Compile-time (static types) |
-| **Type declaration** | Optional (type hints) | Central to the language |
-| **Execution** | `python file.py` | Compile to JS first, then run |
-| **Package manager** | pip | npm |
-| **Project config** | pyproject.toml | package.json, tsconfig.json |
-| **Standard library** | Batteries included | Minimal — npm for everything |
-
-**The key insight:** TypeScript catches errors *before* you run the code. Python catches them *when* you run the code (if at all).
-
-```typescript
-// TypeScript: This won't even compile
-function greet(name: string): void {
-    console.log(`Hello, ${name}`);
-    console.log(name.nonexistentMethod());  // ❌ Compile error
-}
-// You never run broken code. TypeScript stops you.
-```
+1. What problem we're solving and why we made certain choices (Decision Records)
+2. What concepts exist in our domain (Domain Model)
+3. What rules must always be true (Invariants)
+4. What is allowed to depend on what (Architecture Rules)
+5. What will break when things change (Change Scenarios)
+6. What kinds of errors can happen (Error Taxonomy)
+7. Who owns what (Ownership Boundaries)
+8. What tests must pass before we write code (TDD)
 
 ---
 
 ### ADR-001: Technology Choices
 
-**ADR = Architectural Decision Record** — we document WHY we chose each technology.
+**Architectural Decision Record**
 
 | Decision | Choice | Alternatives Considered | Rationale |
 |----------|--------|------------------------|-----------|
 | Language | TypeScript | JavaScript, Python | Static types catch bugs at compile time. Better IDE support. |
-| Runtime | Node.js | Deno, Bun | Most mature, largest ecosystem, universal support. |
-| Database | SQLite | PostgreSQL, JSON files | Single file, no server, built-in. Good for learning, replace later for multi-user. |
-| Web Framework | Express | Fastify, Hono, Nest.js | Minimal magic, explicit routing. Nest.js too complex for learning. |
-| XML Parser | xml2js | fast-xml-parser | Well-documented, widely used. |
-| Testing | Vitest | Jest | Faster, modern, works with Vite. |
+| Database | SQLite | PostgreSQL, JSON files | Single file, no server. Good for learning, replace later for multi-user. |
+| Web Framework | Express | Fastify, Hono | Minimal magic, explicit routing, easy to understand. |
+| XML Parser | xml2js | fast-xml-parser | Well-documented, widely used, Promise-based. |
+| Testing | Vitest | Jest | Faster, modern, works with ESM. |
 | Config | dotenv | hardcoded, envvars only | 12-Factor App compliance, works in dev and prod. |
 
 **When to revisit:**
-- If we need extreme performance → consider Bun or Deno
-- If we need a full framework → consider Nest.js
+- If we need async processing → consider Fastify
 - If we need multi-user concurrent writes → switch to PostgreSQL
 
 ---
 
 ### Domain Model: What Concepts Exist?
 
-Before writing code, we name the things in our world. This is **Domain-Driven Design**.
+Before writing code, we name the things in our world.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -106,7 +50,7 @@ Before writing code, we name the things in our world. This is **Domain-Driven De
 │                                                         │
 │   Part                                                  │
 │   ├── name: string (required, from XML)                 │
-│   ├── machine: string | undefined (optional)            │
+│   ├── machine: string | undefined (optional, from user) │
 │   └── importDate: Date (system-assigned)                │
 │                                                         │
 │   Identity: A Part is uniquely identified by            │
@@ -130,10 +74,11 @@ const partName = element.text;  // What IS a Part? Who knows.
 
 With a model first, we write:
 ```typescript
-interface Part {
-    readonly name: string;  // Required — a Part must have a name
-    readonly machine: string | undefined;  // Optional
-    readonly importDate: Date;  // System-assigned
+class Part {
+    /** A named manufacturing file associated with a machine. */
+    constructor(public readonly name: string, public readonly machine?: string) {
+        if (!name) throw new Error("Part must have a name");
+    }
 }
 ```
 
@@ -147,27 +92,19 @@ Invariants are rules that are **never allowed to be violated**, no matter what c
 
 | Invariant | Where Enforced | Why |
 |-----------|---------------|-----|
-| Part must have a non-empty name | `createPart()` function | A nameless part is meaningless |
-| Part name cannot be "Unknown" | `createPart()` function | "Unknown" hides data problems |
+| Part must have a non-empty name | `Part` constructor | A nameless part is meaningless |
+| Part name cannot be "Unknown" in production | `Part` constructor (configurable) | "Unknown" hides data problems |
 | Database schema must exist before queries | `initDb()` called at startup | Prevents cryptic SQL errors |
 
 **Where do invariants live?**
 
 | Location | Wrong | Right |
 |----------|-------|-------|
-| UI (error message) | ❌ "File path required" | Only for user feedback |
-| Domain (createPart) | ✅ `throw new Error(...)` | This is the source of truth |
+| UI (flash message) | ❌ "File path required" | Only for user feedback |
+| Domain (Part class) | ✅ `throw new Error(...)` | This is the source of truth |
 | Database (`NOT NULL`) | ✅ Defense in depth | Backup if domain is bypassed |
 
 **Rule:** Invariants live in the domain. UI and database are supplementary.
-
-In TypeScript, we can also enforce some invariants at **compile time**:
-```typescript
-// TypeScript won't let you create a Part without a name
-interface PartInput {
-    name: string;  // Required — no ? means it must be provided
-}
-```
 
 ---
 
@@ -186,7 +123,7 @@ We don't just separate files — we **enforce dependency direction**.
 │       ↑                                                 │
 │   Infrastructure (database, repository)                 │
 │       ↑                                                 │
-│   Framework (Express routes, React components)          │
+│   Framework (app.ts, templates)                         │
 │                                                         │
 │   Arrow means "depends on" / "imports from"             │
 │   Lower layers may NOT import from higher layers        │
@@ -198,16 +135,10 @@ We don't just separate files — we **enforce dependency direction**.
 
 | Module | May Import | May NOT Import |
 |--------|-----------|----------------|
-| `src/domain/part.ts` | Nothing | database, express, react |
-| `src/parser/xml.ts` | domain | database, express |
-| `src/infrastructure/repository.ts` | domain | parser, express |
-| `src/routes/parts.ts` | domain, parser, repository | — |
-
-**Why this direction?**
-
-The domain is the **core** of your application. It contains the business rules that matter whether you're using a web app, mobile app, or command-line tool.
-
-If the domain imports from Express, you can't use it in a React Native app. If the domain imports from the database, you can't test it without a database connection.
+| `domain.ts` | Nothing | database, parser, app, express |
+| `parser.ts` | domain | database, express |
+| `repository.ts` | domain | parser, app, express |
+| `app.ts` | domain, parser, repository, database, express | — |
 
 ---
 
@@ -215,16 +146,16 @@ If the domain imports from Express, you can't use it in a React Native app. If t
 
 Before writing code, we ask: "How will this break?"
 
-| Change | Impact Without Architecture | Impact With Architecture |
-|--------|----------------------------|-------------------------|
-| Mastercam changes XML tag names | Every file that touches XML breaks | Only `parser/xml.ts` breaks |
-| We switch from SQLite to PostgreSQL | SQL scattered everywhere breaks | Only `infrastructure/database.ts` breaks |
-| Parts can have multiple machines | Unknown, massive refactor | Domain change, propagates cleanly |
-| We add JSON import alongside XML | Unknown | New parser only, app unchanged |
+| Change | Current Impact | Engineered Impact |
+|--------|---------------|-------------------|
+| Mastercam changes `<MCXFILE-SHORT>` to `<FILENAME>` | Only `parser.ts` breaks | Only `parser.ts` breaks (good) |
+| We switch from SQLite to PostgreSQL | Only `database.ts` + `repository.ts` break | Isolated to infrastructure (goal) |
+| Parts can have multiple machines | Domain model change | Domain model change, propagates cleanly |
+| We add JSON import alongside XML | New parser, app.ts unchanged | New parser only (goal) |
 
-**Exercise (do this mentally before coding):**
+**Exercise (do this before coding):**
 
-> "How would you add a new import format (JSON) without changing the routes?"
+> "How would you add a new import format (JSON) without changing app.ts?"
 
 If you can't answer that, the architecture isn't clean enough.
 
@@ -236,12 +167,10 @@ Not all errors are the same. Engineers classify them.
 
 | Type | Example | Response | Code Pattern |
 |------|---------|----------|--------------|
-| **User Error** | Empty file path | Show message, stay on page | Validation, return error |
+| **User Error** | Empty file path | Flash message, stay on page | Validation, redirect |
 | **Data Error** | XML missing required tag | Log warning, use fallback | Defensive parsing |
 | **Infrastructure Error** | Database locked | Retry or fail gracefully | try/catch with specific type |
-| **Programmer Error** | Called function with wrong type | Crash immediately (fix the code) | TypeScript catches these at compile time |
-
-TypeScript eliminates most **programmer errors** at compile time. This is why we use it.
+| **Programmer Error** | Called function with wrong type | TypeScript catches at compile time | Type annotations |
 
 ---
 
@@ -251,17 +180,17 @@ Every module has an owner. Every boundary has a contract.
 
 | Module | Owner | Contract (what it guarantees) |
 |--------|-------|------------------------------|
-| `domain/part.ts` | Domain Expert | Part interface and createPart never change contract |
-| `parser/xml.ts` | Integration Team | Given XML path, returns Part object |
-| `infrastructure/repository.ts` | Data Team | Given Part, persists and retrieves |
-| `routes/parts.ts` | Web Team | Coordinates, never contains business logic |
+| `domain.ts` | Domain Expert | Part class, invariants never change contract |
+| `parser.ts` | Integration Team | Given XML path, returns Part object |
+| `repository.ts` | Data Team | Given Part, persists and retrieves |
+| `app.ts` | Web Team | Coordinates, never contains business logic |
 
 **Rules that prevent rot:**
 
-1. Only `parser/` may understand XML structure
-2. Only `infrastructure/` may execute SQL
-3. Only `domain/` may validate Part invariants
-4. Routes may ONLY call other modules, never implement logic
+1. Only `parser.ts` may understand XML structure
+2. Only `repository.ts` may execute SQL
+3. Only `domain.ts` may validate Part invariants
+4. `app.ts` may ONLY call other modules, never implement logic
 
 ---
 
@@ -274,48 +203,79 @@ You will write ONE failing test before each piece of code.
 Tests written after code verify implementation.
 Tests written before code **design the interface**.
 
-When you write the test first, you ask:
-- What should this function be called?
-- What arguments should it take?
-- What should it return?
-- What should happen when it fails?
+---
 
-These are **design** questions, not testing questions.
+## Part 1: Project Structure
+
+Before writing code, we create the structure. Here's what we're building:
+
+```
+mastercam-ts/
+├── .env                    # Environment configuration (not committed)
+├── .gitignore              # Files Git should ignore
+├── package.json            # Dependencies and scripts
+├── tsconfig.json           # TypeScript configuration
+├── vitest.config.ts        # Test configuration
+├── src/
+│   ├── domain.ts           # Part class — the CORE (imports nothing)
+│   ├── parser.ts           # XML parsing (imports domain only)
+│   ├── repository.ts       # Database abstraction (imports domain only)
+│   ├── database.ts         # Connection + schema (infrastructure)
+│   └── app.ts              # Express routes (coordinates all)
+├── tests/
+│   ├── domain.test.ts
+│   ├── parser.test.ts
+│   └── repository.test.ts
+└── views/
+    ├── index.ejs
+    └── import.ejs
+```
+
+### Why this structure?
+
+| File | Responsibility | Engineering Principle |
+|------|---------------|----------------------|
+| `domain.ts` | Define what a Part IS | **Domain-Driven Design**: Core has no dependencies |
+| `parser.ts` | Read XML, create Part objects | **Single Responsibility**: Only knows about XML |
+| `repository.ts` | Save/load Parts from database | **Repository Pattern**: Isolates storage details |
+| `database.ts` | SQLite connection and schema | **Infrastructure**: Technical details hidden |
+| `app.ts` | Handle HTTP requests, coordinate | **Thin Controller**: No business logic |
+| `views/` | Display data as HTML | **Separation of Concerns**: Logic and presentation separate |
+
+**Why separate files instead of one big file?**
+
+If everything is in one file:
+- You can't test the parser without starting the web server
+- You can't reuse the database code in a different project
+- When something breaks, you have to search through 1000 lines
+- Two people can't work on different parts at the same time
+
+**This is called Modular Design.** Each module does one thing. Modules talk to each other through defined interfaces (function calls).
 
 ---
 
-## Part 1: Project Setup
-
-Let's build the foundation. Every command is explained.
-
-### Step 1.1: Create the Project Folder
+### Step 1.1: Create Project and Install Dependencies
 
 ```bash
 mkdir mastercam-ts
 cd mastercam-ts
-```
-
-### Step 1.2: Initialize npm
-
-```bash
 npm init -y
 ```
 
-**What this does:**
+Update `package.json` to look like this:
 
-| Created | Purpose |
-|---------|---------|
-| `package.json` | Like Python's `pyproject.toml` — dependencies, scripts, metadata |
-
-**The generated file:**
 ```json
 {
   "name": "mastercam-ts",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Mastercam XML Parser - TypeScript Edition",
+  "type": "module",
+  "main": "dist/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "dev": "tsx src/app.ts",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -323,713 +283,1284 @@ npm init -y
 }
 ```
 
-### Step 1.3: Install TypeScript
+**What each script does:**
+
+| Script | Command | What It Does | Python Equivalent |
+|--------|---------|--------------|-------------------|
+| `build` | `tsc` | Compiles TypeScript to JavaScript | N/A (Python is interpreted) |
+| `start` | `node dist/app.js` | Runs compiled JavaScript | `python app.py` |
+| `dev` | `tsx src/app.ts` | Runs TypeScript directly (development) | `python app.py` |
+| `test` | `vitest run` | Runs tests once | `pytest` |
+
+### Step 1.2: Install Dependencies
 
 ```bash
-npm install typescript --save-dev
+# Production dependencies
+npm install express ejs better-sqlite3 xml2js dotenv
+
+# Development dependencies
+npm install -D typescript tsx vitest @types/node @types/express @types/better-sqlite3 @types/xml2js
 ```
 
-**What `--save-dev` means:**
+**Understanding the packages:**
 
-| Flag | Meaning | Python Equivalent |
-|------|---------|-------------------|
-| `--save` | Production dependency | `pip install flask` |
-| `--save-dev` | Development-only dependency | `pip install pytest` (but in dev group) |
+| Package | Purpose | Python Equivalent |
+|---------|---------|-------------------|
+| `express` | Web framework | Flask |
+| `ejs` | Template engine | Jinja2 |
+| `better-sqlite3` | SQLite database | sqlite3 (built-in) |
+| `xml2js` | XML parsing | xml.etree.ElementTree |
+| `dotenv` | Load .env files | python-dotenv |
+| `typescript` | TypeScript compiler | N/A |
+| `tsx` | Run TypeScript directly | N/A |
+| `vitest` | Testing framework | pytest |
+| `@types/*` | Type definitions | N/A (type hints built-in) |
 
-TypeScript is dev-only because we compile it to JavaScript — the runtime only sees JS.
-
-### Step 1.4: Create TypeScript Configuration
+### Step 1.3: Create TypeScript Configuration
 
 ```bash
 npx tsc --init
 ```
 
-This creates `tsconfig.json` with TypeScript's recommended defaults.
-
-**What TypeScript generates (already good!):**
+Open `tsconfig.json` and make these changes:
 
 ```json
 {
   "compilerOptions": {
-    // File Layout (commented out by default)
-    // "rootDir": "./src",
-    // "outDir": "./dist",
-
-    // Environment Settings
-    "module": "nodenext",
-    "target": "esnext",
-    
-    // Strict checks
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "./src",
+    "outDir": "./dist",
     "strict": true,
-    
-    // Other good defaults...
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "declaration": true
-  }
-}
-```
-
-**What we need to change:** Just uncomment two lines:
-
-| Line | Before | After | Why |
-|------|--------|-------|-----|
-| rootDir | `// "rootDir": "./src"` | `"rootDir": "./src"` | Tells TS our source lives in src/ |
-| outDir | `// "outDir": "./dist"` | `"outDir": "./dist"` | Tells TS to put compiled JS in dist/ |
-
-**Open `tsconfig.json` and uncomment these two lines** (remove the `//`):
-
-```json
-    // File Layout
-    "rootDir": "./src",    // ← uncomment this
-    "outDir": "./dist",    // ← uncomment this
-```
-
-**Key options already set (don't change):**
-
-| Option | Value | What It Does | Why It's Good |
-|--------|-------|--------------|---------------|
-| `module` | `nodenext` | Modern ES modules | `import x from 'x'` syntax |
-| `target` | `esnext` | Latest JavaScript | Modern features like async/await |
-| `strict` | `true` | All type checks enabled | **NEVER disable this** — catches bugs |
-| `skipLibCheck` | `true` | Skip checking node_modules types | Faster compilation |
-| `declaration` | `true` | Generate .d.ts files | Type definitions for other projects |
-
-**Why not replace the whole file?** TypeScript's defaults are good! The generated config includes comments explaining each option. We only need to enable the folder structure settings.
-
-### Step 1.5: Create Folder Structure
-
-```bash
-mkdir -p src/domain
-mkdir -p src/infrastructure
-mkdir -p tests/domain
-```
-
-**Project structure so far:**
-
-```
-mastercam-ts/
-├── package.json
-├── tsconfig.json
-├── src/
-│   ├── domain/          ← Domain layer (Part, invariants)
-│   └── infrastructure/  ← Database, repository
-└── tests/
-    └── domain/          ← Tests for domain layer
-```
-
-### Step 1.6: Update package.json
-
-`npm init -y` generated this file. Let's understand it before modifying:
-
-**What npm generated:**
-
-```json
-{
-  "name": "mastercam-ts",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "forceConsistentCasingInFileNames": true
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "devDependencies": {
-    "typescript": "^5.9.3"
-  }
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "tests"]
 }
 ```
 
-**What each line means:**
-
-| Field | Current Value | What It Means |
-|-------|---------------|---------------|
-| `name` | `"mastercam-ts"` | Package name (from folder) ✅ Keep |
-| `version` | `"1.0.0"` | Semantic version ✅ Keep |
-| `description` | `""` | Empty — we'll add one |
-| `main` | `"index.js"` | Entry point — needs to be `dist/index.js` |
-| `scripts.test` | `"echo..."` | Placeholder — we'll replace with vitest |
-| `type` | `"commonjs"` | **CHANGE TO `"module"`** — enables ESM imports |
-| `devDependencies` | typescript | Already added ✅ |
-
-**What we need to change (and why):**
-
-| Change | Before | After | Why |
-|--------|--------|-------|-----|
-| Add description | `""` | `"Mastercam XML Parser"` | Describes the project |
-| Change type | `"commonjs"` | `"module"` | Enables `import/export` syntax instead of `require()` |
-| Change main | `"index.js"` | `"dist/index.js"` | Our compiled code goes in dist/ |
-| Add build script | — | `"build": "tsc"` | Compiles TypeScript |
-| Add start script | — | `"start": "node dist/index.js"` | Runs compiled code |
-| Add dev script | — | `"dev": "tsx src/index.ts"` | Runs TypeScript directly |
-| Replace test script | `"echo..."` | `"test": "vitest"` | Runs our tests |
-
-**Make these changes manually.** Your package.json should look like this after:
-
-```json
-{
-  "name": "mastercam-ts",
-  "version": "1.0.0",
-  "description": "Mastercam XML Parser - TypeScript Edition",
-  "main": "dist/index.js",
-  "type": "module",
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "tsx src/index.ts",
-    "test": "vitest"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "typescript": "^5.9.3"
-  }
-}
-```
-
-**Deep dive on key changes:**
-
-#### `"type": "module"` — ESM vs CommonJS
-
-| Module System | Syntax | Default In |
-|---------------|--------|------------|
-| **CommonJS** | `const x = require('x')` | Node.js (old) |
-| **ESM** | `import x from 'x'` | Browsers, modern Node |
-
-Setting `"type": "module"` tells Node.js to use modern ESM syntax. TypeScript's `import/export` compiles to ESM.
-
-**Python equivalent:** Python always uses `import x`. JavaScript had two systems; we're choosing the modern one.
-
-#### The Scripts
-
-| Script | Command | What It Does |
-|--------|---------|--------------|
-| `build` | `tsc` | Runs TypeScript compiler, outputs JS to `dist/` |
-| `start` | `node dist/index.js` | Runs the compiled JavaScript |
-| `dev` | `tsx src/index.ts` | Runs TypeScript directly (no compile step) |
-| `test` | `vitest` | Runs our test suite |
-
-**Why both `build` + `start` AND `dev`?**
-
-- `dev` is for development — instant feedback, no compile step
-- `build` + `start` is for production — what you'd ship
-
-**Python equivalent:**
-- `dev` = `python app.py` (interpreted directly)
-- `build` + `start` = `pyinstaller` then run the exe
-
-### Step 1.7: Install Development Dependencies
-
-```bash
-npm install vitest tsx --save-dev
-```
-
-| Package | Purpose | Python Equivalent |
-|---------|---------|-------------------|
-| `vitest` | Testing framework | pytest |
-| `tsx` | Run TypeScript directly | python runtime |
-
----
-
-## Part 2: The Part Domain (TDD Approach)
-
-Like Python, we write tests first. But in TypeScript, we also **define the type first**.
-
-### Step 2.1: Define the Part Interface
-
-**Create file: `src/domain/part.ts`**
-
-```typescript
-/**
- * src/domain/part.ts
- * 
- * The Part domain entity - a manufacturing file associated with a machine.
- * 
- * INVARIANTS:
- * - A Part MUST have a non-empty name
- * - A Part's name cannot be "Unknown" (hides data problems)
- */
-
-// ============================================================
-// TYPE DEFINITIONS
-// ============================================================
-
-/**
- * The data needed to create a Part.
- * This is what external code provides.
- */
-export interface PartInput {
-    name: string;
-    machine?: string;  // Optional - the ? means it can be undefined
-}
-
-/**
- * The complete Part entity after construction.
- * This is what the domain guarantees.
- */
-export interface Part {
-    readonly name: string;
-    readonly machine: string | undefined;
-    readonly importDate: Date;
-}
-
-// ============================================================
-// FACTORY FUNCTION
-// ============================================================
-
-/**
- * Creates a validated Part.
- * 
- * This is a factory function, not a class constructor. Why?
- * - In functional TypeScript, we often prefer functions over classes
- * - Factory functions can return different types (success/failure)
- * - Easier to test and compose
- * 
- * @param input - The data to create a Part from
- * @returns A validated Part object
- * @throws Error if invariants are violated
- */
-export function createPart(input: PartInput): Part {
-    // INVARIANT: name must not be empty
-    if (!input.name || input.name.trim() === '') {
-        throw new Error('Part name is required');
-    }
-    
-    // INVARIANT: name cannot be "Unknown"
-    if (input.name.toLowerCase() === 'unknown') {
-        throw new Error('Part name cannot be "Unknown"');
-    }
-    
-    // Construct the Part with all required fields
-    return {
-        name: input.name.trim(),
-        machine: input.machine?.trim(),  // Optional chaining: undefined if machine is undefined
-        importDate: new Date(),
-    };
-}
-```
-
-### Line-by-Line Deep Dive
-
-#### The Interface Definitions
-
-```typescript
-export interface PartInput {
-    name: string;
-    machine?: string;
-}
-```
-
-| Line | What It Does | Python Equivalent |
-|------|--------------|-------------------|
-| `export` | Makes this available to other files | (Default in Python) |
-| `interface` | Defines a shape of data (compile-time only) | `TypedDict` or `@dataclass` |
-| `PartInput` | Name of the type | Class name |
-| `name: string` | Required property of type string | `name: str` |
-| `machine?: string` | Optional property (? means maybe undefined) | `machine: Optional[str] = None` |
-
-**Key insight:** `interface` is TypeScript-only — it disappears when compiled to JavaScript. It's purely for type checking.
-
-```typescript
-export interface Part {
-    readonly name: string;
-    readonly machine: string | undefined;
-    readonly importDate: Date;
-}
-```
-
-| Line | What It Does | Why |
-|------|--------------|-----|
-| `readonly` | Cannot be modified after creation | Immutability — prevents bugs |
-| `string \| undefined` | Union type: string OR undefined | Different from `?` — explicit about what it holds |
-| `Date` | JavaScript's Date type | Built-in, like Python's datetime |
-
-**readonly vs not:**
-```typescript
-const part: Part = createPart({ name: 'test' });
-part.name = 'changed';  // ❌ Compile error: cannot assign to readonly property
-```
-
-#### The Factory Function
-
-```typescript
-export function createPart(input: PartInput): Part {
-```
-
-| Part | Meaning |
-|------|---------|
-| `export` | Other files can import this |
-| `function` | A function (not a class method) |
-| `createPart` | Function name (camelCase in TypeScript) |
-| `input: PartInput` | Parameter with type annotation |
-| `: Part` | Return type annotation |
-
-**Python equivalent:**
-```python
-def create_part(input: PartInput) -> Part:
-```
-
-#### The Invariant Checks
-
-```typescript
-if (!input.name || input.name.trim() === '') {
-    throw new Error('Part name is required');
-}
-```
-
-| Part | Meaning | Python Equivalent |
-|------|---------|-------------------|
-| `!input.name` | Falsy check (empty string, null, undefined) | `if not input.name` |
-| `\|\|` | Logical OR | `or` |
-| `.trim()` | Remove whitespace | `.strip()` |
-| `=== ''` | Strict equality | `== ''` (but stricter) |
-| `throw new Error(...)` | Throw exception | `raise ValueError(...)` |
-
-**Strict equality (`===`) vs loose (`==`):**
-```typescript
-'5' == 5    // true (JavaScript converts types)
-'5' === 5   // false (different types)
-```
-
-Always use `===` in TypeScript.
-
-#### Optional Chaining
-
-```typescript
-machine: input.machine?.trim(),
-```
-
-| Part | Meaning |
-|------|---------|
-| `input.machine?.trim()` | If machine exists, trim it. Otherwise, undefined. |
-
-**Without optional chaining:**
-```typescript
-machine: input.machine !== undefined ? input.machine.trim() : undefined,
-```
-
-**Python equivalent:**
-```python
-machine=input.machine.strip() if input.machine else None
-```
-
----
-
-### Step 2.2: Write the Tests (TDD)
-
-**Create file: `tests/domain/part.test.ts`**
-
-```typescript
-/**
- * tests/domain/part.test.ts
- * 
- * Unit tests for the Part domain entity.
- * Tests are written BEFORE implementation (TDD).
- */
-
-import { describe, it, expect } from 'vitest';
-import { createPart, Part } from '../../src/domain/part.js';
-
-// ============================================================
-// HAPPY PATH TESTS
-// ============================================================
-
-describe('Part', () => {
-    describe('createPart', () => {
-        
-        it('creates a Part with required name', () => {
-            // Arrange
-            const input = { name: 'widget-housing' };
-            
-            // Act
-            const part = createPart(input);
-            
-            // Assert
-            expect(part.name).toBe('widget-housing');
-            expect(part.machine).toBeUndefined();
-            expect(part.importDate).toBeInstanceOf(Date);
-        });
-        
-        it('creates a Part with name and machine', () => {
-            // Arrange
-            const input = { name: 'bracket', machine: 'Haas VF-2' };
-            
-            // Act
-            const part = createPart(input);
-            
-            // Assert
-            expect(part.name).toBe('bracket');
-            expect(part.machine).toBe('Haas VF-2');
-        });
-        
-        it('trims whitespace from name', () => {
-            const part = createPart({ name: '  spaced-name  ' });
-            expect(part.name).toBe('spaced-name');
-        });
-        
-        it('trims whitespace from machine', () => {
-            const part = createPart({ name: 'part', machine: '  Mazak  ' });
-            expect(part.machine).toBe('Mazak');
-        });
-        
-    });
-    
-    // ============================================================
-    // INVARIANT TESTS
-    // ============================================================
-    
-    describe('invariants', () => {
-        
-        it('throws on empty name', () => {
-            expect(() => createPart({ name: '' }))
-                .toThrow('Part name is required');
-        });
-        
-        it('throws on whitespace-only name', () => {
-            expect(() => createPart({ name: '   ' }))
-                .toThrow('Part name is required');
-        });
-        
-        it('throws on "Unknown" name (case-insensitive)', () => {
-            expect(() => createPart({ name: 'Unknown' }))
-                .toThrow('Part name cannot be "Unknown"');
-            
-            expect(() => createPart({ name: 'UNKNOWN' }))
-                .toThrow('Part name cannot be "Unknown"');
-            
-            expect(() => createPart({ name: 'unknown' }))
-                .toThrow('Part name cannot be "Unknown"');
-        });
-        
-    });
-    
-    // ============================================================
-    // TYPE TESTS (Compile-time only)
-    // ============================================================
-    
-    describe('type safety', () => {
-        
-        it('Part properties are readonly', () => {
-            const part = createPart({ name: 'test' });
-            
-            // This would be a compile error if uncommented:
-            // part.name = 'changed';  // ❌ Cannot assign to 'name' because it is readonly
-            
-            // We can only verify this at compile time, not runtime
-            expect(part.name).toBe('test');
-        });
-        
-    });
-});
-```
-
-### Test Syntax Deep Dive
-
-| Vitest/Jest | pytest | Purpose |
-|-------------|--------|---------|
-| `describe('Part', () => {...})` | `class TestPart:` | Group tests |
-| `it('creates a Part', () => {...})` | `def test_creates_part(self):` | Single test |
-| `expect(x).toBe(y)` | `assert x == y` | Assertion |
-| `expect(x).toThrow('msg')` | `with pytest.raises(ValueError):` | Exception test |
-
-**The import line:**
-```typescript
-import { createPart, Part } from '../../src/domain/part.js';
-```
-
-| Part | Meaning |
-|------|---------|
-| `import { x, y }` | Named imports (like Python's `from module import x, y`) |
-| `../../src/domain/part.js` | Path to module (**.js** even though source is .ts!) |
-
-**Why `.js` in imports?** TypeScript compiles to JavaScript. The import path must match what exists at runtime.
-
-### Step 2.3: Create Vitest Config
-
-**Create file: `vitest.config.ts`**
+**Key options explained:**
+
+| Option | Value | Why |
+|--------|-------|-----|
+| `target` | `ES2022` | Modern JavaScript features |
+| `module` | `NodeNext` | ESM modules (import/export) |
+| `rootDir` | `./src` | Source code location |
+| `outDir` | `./dist` | Compiled output location |
+| `strict` | `true` | All type checks enabled — **NEVER disable this** |
+
+### Step 1.4: Create Vitest Configuration
+
+Create `vitest.config.ts`:
 
 ```typescript
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
     test: {
-        globals: false,  // Require explicit imports
+        globals: false,
         environment: 'node',
     },
 });
 ```
 
-### Step 2.4: Run the Tests
+### Step 1.5: Create Folder Structure
+
+```bash
+mkdir -p src views tests
+```
+
+---
+
+## Part 2: domain.ts — The Core
+
+This file is the **heart** of the application. It defines what a Part IS.
+
+**Critical rule:** `domain.ts` imports NOTHING from this project. It's pure TypeScript.
+
+### Step 2.1: Write the Failing Test FIRST
+
+Create `tests/domain.test.ts`:
+
+```typescript
+/**
+ * Tests for domain objects. Written BEFORE the code.
+ */
+import { describe, it, expect } from 'vitest';
+import { Part } from '../src/domain.js';
+
+describe('Part', () => {
+    it('requires a name', () => {
+        expect(() => new Part('')).toThrow('Part must have a non-empty name');
+    });
+
+    it('stores attributes', () => {
+        const part = new Part('MyPart.mcam', '5');
+        
+        expect(part.name).toBe('MyPart.mcam');
+        expect(part.machine).toBe('5');
+    });
+
+    it('machine is optional', () => {
+        const part = new Part('MyPart.mcam');
+        
+        expect(part.machine).toBeUndefined();
+    });
+
+    it('trims whitespace from name', () => {
+        const part = new Part('  MyPart.mcam  ', '5');
+        
+        expect(part.name).toBe('MyPart.mcam');
+    });
+
+    it('two Parts with same name and machine are equal', () => {
+        const part1 = new Part('a', '5');
+        const part2 = new Part('a', '5');
+        
+        expect(part1.equals(part2)).toBe(true);
+    });
+
+    it('two Parts with different machines are not equal', () => {
+        const part1 = new Part('a', '5');
+        const part2 = new Part('a', '6');
+        
+        expect(part1.equals(part2)).toBe(false);
+    });
+});
+```
+
+### Step 2.2: Run the Test — It MUST Fail
 
 ```bash
 npm test
 ```
 
-**Expected output:**
+**Expected:** `Error: Cannot find module '../src/domain.js'`
 
-```
- ✓ tests/domain/part.test.ts (8)
-   ✓ Part (8)
-     ✓ createPart (4)
-       ✓ creates a Part with required name
-       ✓ creates a Part with name and machine
-       ✓ trims whitespace from name
-       ✓ trims whitespace from machine
-     ✓ invariants (3)
-       ✓ throws on empty name
-       ✓ throws on whitespace-only name
-       ✓ throws on "Unknown" name (case-insensitive)
-     ✓ type safety (1)
-       ✓ Part properties are readonly
+**Why run a test that fails?**
 
- Test Files  1 passed (1)
-      Tests  8 passed (8)
-```
+This is **Red-Green-Refactor**:
+1. **Red:** Test fails (no code exists)
+2. **Green:** Write minimum code to pass
+3. **Refactor:** Improve without breaking tests
 
----
+### Step 2.3: Write domain.ts
 
-## Part 3: Creating the Entry Point
-
-**Create file: `src/index.ts`**
+Create `src/domain.ts`:
 
 ```typescript
 /**
- * src/index.ts
- * 
- * Application entry point.
- * For now, just a simple demonstration.
+ * Domain objects for MastercamPDM.
+ *
+ * This module defines what a Part IS.
+ * It has NO imports from other project modules.
+ * It does NOT know about databases, XML, Express, or anything else.
+ *
+ * This is the CORE of the application.
  */
 
-import { createPart } from './domain/part.js';
+export class Part {
+    /**
+     * A manufacturing part associated with a machine.
+     *
+     * Identity: Two Parts are "the same" if name AND machine match.
+     * Invariant: name cannot be empty or whitespace-only.
+     */
+    
+    public readonly name: string;
+    public readonly machine: string | undefined;
+    public readonly partId: number | undefined;
+    public readonly importDate: Date;
 
-// Create a sample Part
-const part = createPart({
-    name: 'widget-housing',
-    machine: 'Haas VF-2',
-});
+    constructor(name: string, machine?: string, partId?: number) {
+        if (!name || !name.trim()) {
+            throw new Error('Part must have a non-empty name');
+        }
 
-console.log('Created Part:');
-console.log(`  Name: ${part.name}`);
-console.log(`  Machine: ${part.machine ?? 'Not specified'}`);
-console.log(`  Imported: ${part.importDate.toISOString()}`);
+        this.name = name.trim();
+        this.machine = machine?.trim() || undefined;
+        this.partId = partId;
+        this.importDate = new Date();
+    }
 
-// Demonstrate invariant enforcement
-try {
-    createPart({ name: '' });
-} catch (error) {
-    if (error instanceof Error) {
-        console.log(`\nInvariant enforced: ${error.message}`);
+    /**
+     * Two Parts are equal if name and machine match.
+     */
+    equals(other: Part): boolean {
+        return this.name === other.name && this.machine === other.machine;
+    }
+
+    /**
+     * Developer-friendly string representation.
+     */
+    toString(): string {
+        return `Part(name='${this.name}', machine='${this.machine}', id=${this.partId})`;
     }
 }
 ```
 
-**Nullish coalescing (`??`):**
-```typescript
-part.machine ?? 'Not specified'
-```
+---
 
-| Operator | Returns |
-|----------|---------|
-| `a ?? b` | `a` if `a` is not null/undefined, otherwise `b` |
-| `a \|\| b` | `a` if `a` is truthy, otherwise `b` |
+### Line-by-Line Deep Dive
+
+#### The Class Definition
 
 ```typescript
-'' ?? 'default'   // '' (empty string is not null/undefined)
-'' || 'default'   // 'default' (empty string is falsy)
+export class Part {
 ```
 
-### Step 3.1: Run the Application
+| Keyword | Python Equivalent | Meaning |
+|---------|-------------------|---------|
+| `export` | (default in Python) | Makes this available to other files |
+| `class` | `class` | Defines a class |
+
+#### The Properties
+
+```typescript
+public readonly name: string;
+public readonly machine: string | undefined;
+public readonly partId: number | undefined;
+```
+
+| Keyword | Meaning |
+|---------|---------|
+| `public` | Accessible from outside the class |
+| `readonly` | Cannot be changed after construction |
+| `string \| undefined` | Union type: can be string OR undefined |
+
+**Why `readonly`?**
+
+```typescript
+const part = new Part('test', '5');
+part.name = 'changed';  // ❌ Error: Cannot assign to 'name' because it is readonly
+```
+
+Immutability prevents bugs. Once a Part is created, it can't be accidentally modified.
+
+#### The Constructor
+
+```typescript
+constructor(name: string, machine?: string, partId?: number) {
+    if (!name || !name.trim()) {
+        throw new Error('Part must have a non-empty name');
+    }
+    // ...
+}
+```
+
+| Syntax | Python Equivalent | Meaning |
+|--------|-------------------|---------|
+| `constructor(...)` | `def __init__(self, ...)` | Called when `new Part(...)` is written |
+| `machine?: string` | `machine: str = None` | Optional parameter |
+| `throw new Error(...)` | `raise ValueError(...)` | Throw an exception |
+
+**What is `machine?.trim()`?**
+
+This is **optional chaining**. It means: "If machine exists, call trim(). Otherwise, return undefined."
+
+```typescript
+// Without optional chaining
+const trimmed = machine !== undefined ? machine.trim() : undefined;
+
+// With optional chaining
+const trimmed = machine?.trim();
+```
+
+Python equivalent:
+```python
+trimmed = machine.strip() if machine else None
+```
+
+### Step 2.4: Run Tests — They MUST Pass
 
 ```bash
-npm run dev
+npm test
 ```
 
-**Expected output:**
+**Expected:** All 6 tests pass.
 
-```
-Created Part:
-  Name: widget-housing
-  Machine: Haas VF-2
-  Imported: 2026-01-04T23:48:00.000Z
+---
 
-Invariant enforced: Part name is required
+## Part 3: database.ts — The Data Layer
+
+This file is responsible for:
+1. Defining what tables exist (the "schema")
+2. Providing a way to connect to the database
+3. Ensuring the database is set up correctly
+
+**Note:** This module is INFRASTRUCTURE. It handles technical details. The domain doesn't know it exists.
+
+### The Complete File
+
+Create `src/database.ts`:
+
+```typescript
+/**
+ * Database connection and schema for MastercamPDM.
+ *
+ * This module is the ONLY place that knows about SQLite.
+ * The rest of the application asks this module for data.
+ */
+import Database from 'better-sqlite3';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get the directory of this file (ESM doesn't have __dirname)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configuration: Where is the database file?
+const DATABASE_PATH = path.join(__dirname, '..', 'mastercam.db');
+
+// Schema: What tables do we need?
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS parts (
+    part_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    part_name TEXT NOT NULL,
+    machine TEXT,
+    import_date TEXT DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+let db: Database.Database | null = null;
+
+/**
+ * Get a connection to the database.
+ *
+ * Returns the same connection each time (singleton pattern).
+ * Why? SQLite works best with a single connection in most cases.
+ */
+export function getDb(): Database.Database {
+    if (!db) {
+        db = new Database(DATABASE_PATH);
+    }
+    return db;
+}
+
+/**
+ * Create the database tables if they don't exist.
+ *
+ * This is safe to call multiple times because of "IF NOT EXISTS".
+ *
+ * Why a separate function instead of doing this in getDb()?
+ * - getDb() is called on every request (fast, no disk writes)
+ * - initDb() is called once at startup (slower, writes to disk)
+ * - Separation of "setup" from "use"
+ */
+export function initDb(): void {
+    const database = getDb();
+    database.exec(SCHEMA);
+}
+
+/**
+ * Close the database connection.
+ * Call this when shutting down the app.
+ */
+export function closeDb(): void {
+    if (db) {
+        db.close();
+        db = null;
+    }
+}
 ```
 
 ---
 
-## Part 4: Complete File List
+### Line-by-Line Deep Dive
+
+#### The Import
+
+```typescript
+import Database from 'better-sqlite3';
+```
+
+| TypeScript | Python Equivalent | What it provides |
+|------------|-------------------|------------------|
+| `import Database from 'better-sqlite3'` | `import sqlite3` | Database library |
+
+**Why `better-sqlite3` instead of built-in?**
+
+Node.js doesn't have a built-in SQLite library like Python does. `better-sqlite3` is the fastest and most reliable option. It's synchronous (no callbacks/promises for queries), which matches the Python `sqlite3` behavior.
+
+#### The DATABASE_PATH
+
+```typescript
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATABASE_PATH = path.join(__dirname, '..', 'mastercam.db');
+```
+
+**Why so complicated?**
+
+In Python, you can use `__file__` directly. In ESM (ECMAScript Modules), `__dirname` doesn't exist. We have to derive it from `import.meta.url`.
+
+| Expression | Value |
+|------------|-------|
+| `import.meta.url` | `file:///C:/Users/.../src/database.ts` |
+| `fileURLToPath(...)` | `C:\Users\...\src\database.ts` |
+| `path.dirname(...)` | `C:\Users\...\src` |
+| `path.join(..., '..', 'mastercam.db')` | `C:\Users\...\mastercam.db` |
+
+#### The SCHEMA
+
+```typescript
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS parts (
+    part_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    part_name TEXT NOT NULL,
+    machine TEXT,
+    import_date TEXT DEFAULT CURRENT_TIMESTAMP
+);
+`;
+```
+
+This is identical to the Python version. SQL is SQL, regardless of language.
+
+| Column | Type | Constraint | Why |
+|--------|------|------------|-----|
+| `part_id` | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique identifier, auto-assigned |
+| `part_name` | TEXT | NOT NULL | Required — database rejects empty |
+| `machine` | TEXT | (none) | Optional — can be null |
+| `import_date` | TEXT | DEFAULT CURRENT_TIMESTAMP | Auto-filled by database |
+
+#### The Singleton Pattern
+
+```typescript
+let db: Database.Database | null = null;
+
+export function getDb(): Database.Database {
+    if (!db) {
+        db = new Database(DATABASE_PATH);
+    }
+    return db;
+}
+```
+
+This is the **Singleton Pattern** — only one database connection exists. Every call to `getDb()` returns the same connection.
+
+**Why?**
+
+SQLite works best with a single connection. Multiple connections can cause locking issues.
+
+---
+
+## Part 4: repository.ts — The Boundary
+
+The repository is the **boundary** between domain and infrastructure. It speaks "domain language" (Part objects) on one side and "database language" (SQL) on the other.
+
+**Critical rule:** Repository imports `domain` but NOT `parser` or `app`.
+
+### The Complete File
+
+Create `src/repository.ts`:
+
+```typescript
+/**
+ * Repository for Part persistence.
+ *
+ * This module translates between domain objects and database storage.
+ * It speaks 'Part' to the application and 'SQL' to the database.
+ *
+ * Dependency: domain.ts only (for Part class)
+ */
+import Database from 'better-sqlite3';
+import { Part } from './domain.js';
+
+export class PartRepository {
+    /**
+     * Handles saving and retrieving Part objects.
+     *
+     * This is the boundary between domain and infrastructure.
+     * The application only deals with Part objects.
+     * The repository handles the SQL details.
+     */
+    
+    private db: Database.Database;
+
+    constructor(dbConnection: Database.Database) {
+        /**
+         * Create a repository with a database connection.
+         *
+         * Why inject the connection?
+         * - Repository doesn't control connection lifecycle
+         * - Same connection can be used for transactions
+         * - Makes testing easier (inject test database)
+         */
+        this.db = dbConnection;
+    }
+
+    /**
+     * Persist a Part to the database.
+     *
+     * Returns a new Part with the assigned partId.
+     */
+    save(part: Part): Part {
+        const stmt = this.db.prepare(
+            'INSERT INTO parts (part_name, machine) VALUES (?, ?)'
+        );
+        const result = stmt.run(part.name, part.machine ?? null);
+        
+        // Return a new Part with the assigned ID
+        return new Part(part.name, part.machine, Number(result.lastInsertRowid));
+    }
+
+    /**
+     * Retrieve all Parts, newest first.
+     */
+    getAll(): Part[] {
+        const stmt = this.db.prepare(
+            'SELECT part_id, part_name, machine FROM parts ORDER BY import_date DESC'
+        );
+        const rows = stmt.all() as Array<{
+            part_id: number;
+            part_name: string;
+            machine: string | null;
+        }>;
+        
+        // Convert database rows to domain objects
+        return rows.map(row => new Part(
+            row.part_name,
+            row.machine ?? undefined,
+            row.part_id
+        ));
+    }
+}
+```
+
+---
+
+### Line-by-Line Deep Dive
+
+#### The Import
+
+```typescript
+import { Part } from './domain.js';
+```
+
+**What this imports:** Only the Part class from domain.ts
+
+**What this does NOT import:** database, parser, app, express
+
+This is the **Dependency Rule** in action. The repository depends on the domain, not the other way around.
+
+**Why `.js` extension?**
+
+TypeScript compiles to JavaScript. At runtime, Node.js needs to find `.js` files. Always use `.js` in imports, even though your source is `.ts`.
+
+#### The Constructor (Dependency Injection)
+
+```typescript
+private db: Database.Database;
+
+constructor(dbConnection: Database.Database) {
+    this.db = dbConnection;
+}
+```
+
+| Keyword | Meaning |
+|---------|---------|
+| `private` | Only accessible within this class |
+| `Database.Database` | The type from better-sqlite3 |
+
+**What is Dependency Injection?**
+
+Instead of creating its own connection:
+```typescript
+// BAD - repository controls connection
+constructor() {
+    this.db = new Database('mastercam.db');
+}
+```
+
+We pass the connection in:
+```typescript
+// GOOD - connection is injected
+constructor(dbConnection: Database.Database) {
+    this.db = dbConnection;
+}
+```
+
+**Why does this matter?**
+
+1. **Testing:** You can inject a test database (in-memory)
+2. **Transactions:** Multiple repositories can share one connection
+3. **Flexibility:** Caller controls connection lifecycle
+
+#### The save() Method
+
+```typescript
+save(part: Part): Part {
+    const stmt = this.db.prepare(
+        'INSERT INTO parts (part_name, machine) VALUES (?, ?)'
+    );
+    const result = stmt.run(part.name, part.machine ?? null);
+    return new Part(part.name, part.machine, Number(result.lastInsertRowid));
+}
+```
+
+**What is `prepare()`?**
+
+It creates a **prepared statement** — SQL with placeholders (`?`) that get filled in safely.
+
+**Why prepared statements?**
+
+```typescript
+// DANGEROUS - Never do this!
+db.exec(`INSERT INTO parts (part_name) VALUES ('${part.name}')`);
+
+// SAFE - Always do this
+const stmt = db.prepare('INSERT INTO parts (part_name) VALUES (?)');
+stmt.run(part.name);
+```
+
+If `part.name` contains `'; DROP TABLE parts; --`, the dangerous version would delete your table! This is **SQL Injection**. Prepared statements treat values as DATA, not code.
+
+**What is `??` (nullish coalescing)?**
+
+```typescript
+part.machine ?? null
+```
+
+Returns `part.machine` if it's not null/undefined. Otherwise returns `null`.
+
+We need this because SQLite expects `null`, but Part uses `undefined` for missing values.
+
+#### The getAll() Method
+
+```typescript
+getAll(): Part[] {
+    const stmt = this.db.prepare(
+        'SELECT part_id, part_name, machine FROM parts ORDER BY import_date DESC'
+    );
+    const rows = stmt.all() as Array<{...}>;
+    
+    return rows.map(row => new Part(
+        row.part_name,
+        row.machine ?? undefined,
+        row.part_id
+    ));
+}
+```
+
+**What is `.map()`?**
+
+It transforms each element in an array. Python equivalent:
+
+```python
+return [
+    Part(name=row['part_name'], machine=row['machine'], part_id=row['part_id'])
+    for row in rows
+]
+```
+
+**Why convert rows to Part objects?**
+
+The repository's job is to hide database details. The rest of the application should never see raw database rows — only Part objects.
+
+---
+
+## Part 5: parser.ts — The XML Layer
+
+This file is responsible for:
+1. Reading an XML file
+2. Extracting data
+3. Creating Part domain objects
+
+**Critical rule:** Parser imports ONLY `domain`. It does NOT import `database` or `repository`.
+
+### The Complete File
+
+Create `src/parser.ts`:
+
+```typescript
+/**
+ * XML Parser for Mastercam setup sheet files.
+ *
+ * This module reads Mastercam XML and extracts relevant data.
+ * It returns domain objects — it does NOT touch the database.
+ *
+ * Dependency: domain.ts only
+ */
+import { parseStringPromise } from 'xml2js';
+import { readFileSync } from 'fs';
+import { Part } from './domain.js';
+
+/**
+ * Parse a Mastercam XML file and return a Part object.
+ *
+ * Note: This function does NOT save to database.
+ * It only extracts data and creates a domain object.
+ * Saving is the repository's job.
+ */
+export async function parseXmlFile(filepath: string, machine?: string): Promise<Part> {
+    // Step 1: Read the file
+    let xmlContent: string;
+    try {
+        xmlContent = readFileSync(filepath, 'utf-8');
+    } catch (error) {
+        throw new Error(`File not found: ${filepath}`);
+    }
+
+    // Step 2: Parse XML into a JavaScript object
+    const result = await parseStringPromise(xmlContent);
+
+    // Step 3: Navigate to find the part name
+    // Mastercam XML structure: SETUPSHEET → HEADER → MCXFILE-SHORT
+    let partName = '';
+    
+    try {
+        const header = result?.SETUPSHEET?.HEADER?.[0];
+        const mcxFileShort = header?.['MCXFILE-SHORT']?.[0];
+        partName = mcxFileShort ?? '';
+    } catch {
+        partName = '';  // Let Part decide if this is valid
+    }
+
+    // Step 4: Create and return domain object
+    // Part constructor will validate (throw Error if empty name)
+    return new Part(partName, machine);
+}
+```
+
+---
+
+### Line-by-Line Deep Dive
+
+#### The Imports
+
+```typescript
+import { parseStringPromise } from 'xml2js';
+import { readFileSync } from 'fs';
+import { Part } from './domain.js';
+```
+
+| Import | Python Equivalent | Purpose |
+|--------|-------------------|---------|
+| `parseStringPromise` | `ET.fromstring()` | Parse XML string |
+| `readFileSync` | `open().read()` | Read file contents |
+| `Part` | `from domain import Part` | Domain object |
+
+**Why `xml2js` instead of built-in?**
+
+Node.js doesn't have a built-in XML parser. `xml2js` converts XML to JavaScript objects, which is often easier to work with than a DOM tree.
+
+#### The Function Signature
+
+```typescript
+export async function parseXmlFile(filepath: string, machine?: string): Promise<Part> {
+```
+
+| Part | Meaning | Python Equivalent |
+|------|---------|-------------------|
+| `async function` | Asynchronous function | `async def` |
+| `Promise<Part>` | Returns a Promise that resolves to Part | `async def ... -> Part` |
+
+**Why async?**
+
+`xml2js` uses Promises for parsing. In a web server, async functions let other requests be handled while parsing.
+
+**Can we use sync instead?** Yes, `xml2js` has a sync version, but async is better practice for I/O operations.
+
+#### Reading the File
+
+```typescript
+try {
+    xmlContent = readFileSync(filepath, 'utf-8');
+} catch (error) {
+    throw new Error(`File not found: ${filepath}`);
+}
+```
+
+We wrap file reading in try/catch to give a clear error message.
+
+**Why `readFileSync` instead of `readFile`?**
+
+`readFileSync` is synchronous (blocking). For a small file in a learning project, it's simpler. In production, you might use the async version.
+
+#### Navigating the Parsed XML
+
+```typescript
+const header = result?.SETUPSHEET?.HEADER?.[0];
+const mcxFileShort = header?.['MCXFILE-SHORT']?.[0];
+```
+
+`xml2js` converts XML to nested objects:
+
+```xml
+<SETUPSHEET>
+    <HEADER>
+        <MCXFILE-SHORT>MyPart.mcam</MCXFILE-SHORT>
+    </HEADER>
+</SETUPSHEET>
+```
+
+Becomes:
+
+```javascript
+{
+    SETUPSHEET: {
+        HEADER: [
+            { 'MCXFILE-SHORT': ['MyPart.mcam'] }
+        ]
+    }
+}
+```
+
+**Why arrays?** XML can have multiple elements with the same name. `xml2js` uses arrays to handle this.
+
+**Why `?.` everywhere?** Optional chaining prevents crashes if any part of the path is missing.
+
+---
+
+## Part 6: app.ts — The Web Layer
+
+`app.ts` is the **thinnest possible layer**. It:
+- Receives HTTP requests
+- Calls domain/application services
+- Returns HTTP responses
+
+It contains **ZERO business logic**.
+
+### The Complete File
+
+Create `src/app.ts`:
+
+```typescript
+/**
+ * MastercamPDM - Web Application.
+ *
+ * This module handles HTTP only.
+ * It coordinates between modules but contains NO logic.
+ */
+import 'dotenv/config';
+import express, { Request, Response } from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+import { initDb, getDb, closeDb } from './database.js';
+import { PartRepository } from './repository.js';
+import { parseXmlFile } from './parser.js';
+
+// ESM doesn't have __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Create Express app
+const app = express();
+
+// Configuration
+const PORT = process.env.PORT || 3000;
+const SECRET_KEY = process.env.SECRET_KEY || 'dev-fallback-key';
+
+// Middleware
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '..', 'views'));
+app.use(express.urlencoded({ extended: true }));
+
+// Flash message storage (simple in-memory for now)
+let flashMessage: { type: string; text: string } | null = null;
+
+function flash(type: string, text: string): void {
+    flashMessage = { type, text };
+}
+
+function getFlash(): { type: string; text: string } | null {
+    const message = flashMessage;
+    flashMessage = null;  // Consume the message
+    return message;
+}
+
+// Initialize database before handling requests
+initDb();
+
+// Routes
+
+/**
+ * Dashboard - show all imported parts.
+ */
+app.get('/', (req: Request, res: Response) => {
+    const db = getDb();
+    const repo = new PartRepository(db);
+    const parts = repo.getAll();
+    
+    res.render('index', { 
+        parts,
+        flash: getFlash()
+    });
+});
+
+/**
+ * Import form - GET shows form, POST processes import.
+ */
+app.get('/import', (req: Request, res: Response) => {
+    res.render('import', { flash: getFlash() });
+});
+
+app.post('/import', async (req: Request, res: Response) => {
+    const filepath = (req.body.filepath || '').trim();
+    const machine = (req.body.machine || '').trim() || undefined;
+
+    // User error: empty path
+    if (!filepath) {
+        flash('error', 'File path is required');
+        return res.redirect('/import');
+    }
+
+    const db = getDb();
+    const repo = new PartRepository(db);
+
+    try {
+        // Parse XML → Part (domain object)
+        const part = await parseXmlFile(filepath, machine);
+
+        // Save Part via repository
+        const savedPart = repo.save(part);
+
+        flash('success', `Imported: ${savedPart.name} (ID: ${savedPart.partId})`);
+        return res.redirect('/');
+
+    } catch (error) {
+        if (error instanceof Error) {
+            if (error.message.includes('File not found')) {
+                // User error: bad path
+                flash('error', 'File not found');
+            } else if (error.message.includes('Part must have')) {
+                // Domain error: invalid data
+                flash('error', `Invalid data: ${error.message}`);
+            } else {
+                // Unexpected error
+                flash('error', `Unexpected error: ${error.message}`);
+            }
+        } else {
+            flash('error', 'An unexpected error occurred');
+        }
+        return res.redirect('/import');
+    }
+});
+
+// Start server
+app.listen(PORT, () => {
+    console.log(`MastercamPDM running at http://localhost:${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.log('\nShutting down...');
+    closeDb();
+    process.exit(0);
+});
+```
+
+---
+
+### Line-by-Line Deep Dive
+
+#### Creating the Express App
+
+```typescript
+import express, { Request, Response } from 'express';
+const app = express();
+```
+
+| TypeScript | Python/Flask Equivalent |
+|------------|-------------------------|
+| `const app = express()` | `app = Flask(__name__)` |
+
+Express is Node's equivalent of Flask — a minimal web framework.
+
+#### Configuration
+
+```typescript
+const PORT = process.env.PORT || 3000;
+const SECRET_KEY = process.env.SECRET_KEY || 'dev-fallback-key';
+```
+
+| TypeScript | Python Equivalent |
+|------------|-------------------|
+| `process.env.PORT` | `os.environ.get('PORT')` |
+| `\|\| 3000` | `, 3000)` (default value) |
+
+#### Template Engine Setup
+
+```typescript
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, '..', 'views'));
+```
+
+This tells Express to use EJS templates (like Jinja2 in Flask) and look for them in the `views/` folder.
+
+#### The Coordinate Pattern
+
+```typescript
+const db = getDb();
+const repo = new PartRepository(db);
+const part = await parseXmlFile(filepath, machine);
+const savedPart = repo.save(part);
+```
+
+Notice: `app.ts` only coordinates. It:
+1. Gets a database connection
+2. Creates a repository
+3. Calls the parser
+4. Saves via repository
+
+**No business logic.** No validation. No SQL. No XML parsing.
+
+That's the **Thin Controller** pattern.
+
+#### Error Classification
+
+```typescript
+if (error.message.includes('File not found')) {
+    flash('error', 'File not found');  // User error
+} else if (error.message.includes('Part must have')) {
+    flash('error', `Invalid data: ${error.message}`);  // Domain error
+} else {
+    flash('error', `Unexpected error: ${error.message}`);  // Infrastructure
+}
+```
+
+We handle different errors differently:
+- `File not found` → User typed wrong path (their fault)
+- `Part must have` → Domain rejected the data (business rule)
+- Other → Something unexpected (our fault, should log)
+
+---
+
+## Part 7: Views — The Display Layer
+
+### views/index.ejs
+
+Create `views/index.ejs`:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MastercamPDM</title>
+    <style>
+        .success { background: #d4edda; color: #155724; padding: 10px; margin: 10px 0; }
+        .error { background: #f8d7da; color: #721c24; padding: 10px; margin: 10px 0; }
+        table { border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f4f4f4; }
+    </style>
+</head>
+<body>
+    <h1>Imported Parts</h1>
+
+    <a href="/import">Import New Part</a>
+
+    <% if (flash) { %>
+        <p class="<%= flash.type %>"><%= flash.text %></p>
+    <% } %>
+
+    <% if (parts.length > 0) { %>
+    <table>
+        <tr>
+            <th>Part Name</th>
+            <th>Machine</th>
+        </tr>
+        <% parts.forEach(part => { %>
+        <tr>
+            <td><%= part.name %></td>
+            <td><%= part.machine || '-' %></td>
+        </tr>
+        <% }) %>
+    </table>
+    <% } else { %>
+    <p>No parts imported yet.</p>
+    <% } %>
+</body>
+</html>
+```
+
+### views/import.ejs
+
+Create `views/import.ejs`:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Import Part</title>
+    <style>
+        .error { background: #f8d7da; color: #721c24; padding: 10px; margin: 10px 0; }
+        label { display: block; margin: 10px 0; }
+        input { padding: 5px; width: 300px; }
+        button { padding: 10px 20px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Import Part</h1>
+
+    <% if (flash) { %>
+        <p class="<%= flash.type %>"><%= flash.text %></p>
+    <% } %>
+
+    <form method="POST">
+        <label>
+            Machine:
+            <input name="machine" type="text" placeholder="e.g., Haas VF-2">
+        </label>
+        <label>
+            XML Path:
+            <input name="filepath" type="text" required placeholder="C:\path\to\setup.xml">
+        </label>
+        <button type="submit">Import</button>
+    </form>
+
+    <p><a href="/">Back to Dashboard</a></p>
+</body>
+</html>
+```
+
+### EJS Template Deep Dive
+
+| Syntax | Purpose | Jinja2 Equivalent |
+|--------|---------|-------------------|
+| `<%= value %>` | Print a value (escaped) | `{{ value }}` |
+| `<%- value %>` | Print a value (unescaped) | `{{ value\|safe }}` |
+| `<% code %>` | Execute JavaScript | `{% code %}` |
+
+**Note:** We use `part.name` not `part.part_name` because the template receives Part domain objects, not database rows.
+
+---
+
+## Part 8: Configuration
+
+### Create .env
+
+```
+PORT=3000
+SECRET_KEY=dev-secret-key-change-in-production
+```
+
+### Create .gitignore
+
+```
+node_modules/
+dist/
+.env
+*.db
+```
+
+---
+
+## Part 9: Run It
+
+### Step 9.1: Verify Project Structure
 
 Your project should now look like this:
 
 ```
 mastercam-ts/
+├── .env
+├── .gitignore
 ├── package.json
 ├── tsconfig.json
 ├── vitest.config.ts
 ├── src/
-│   ├── domain/
-│   │   └── part.ts
-│   └── index.ts
-└── tests/
-    └── domain/
-        └── part.test.ts
+│   ├── domain.ts
+│   ├── parser.ts
+│   ├── repository.ts
+│   ├── database.ts
+│   └── app.ts
+├── tests/
+│   └── domain.test.ts
+└── views/
+    ├── index.ejs
+    └── import.ejs
 ```
 
-**Total: 5 files**
+### Step 9.2: Run Tests
+
+```bash
+npm test
+```
+
+**Expected:** All tests pass.
+
+### Step 9.3: Start the App
+
+```bash
+npm run dev
+```
+
+**Expected:** `MastercamPDM running at http://localhost:3000`
+
+Open your browser to `http://localhost:3000`. You should see:
+- "Imported Parts" heading
+- "Import New Part" link
+- "No parts imported yet." message
+
+### Step 9.4: Test the Import
+
+1. Create a test XML file at `C:\test-setup.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<SETUPSHEET>
+    <HEADER>
+        <MCXFILE-SHORT>TestPart.mcam</MCXFILE-SHORT>
+    </HEADER>
+</SETUPSHEET>
+```
+
+2. Go to `http://localhost:3000/import`
+3. Enter the path `C:\test-setup.xml`
+4. Enter machine `Test Machine`
+5. Click Import
+
+You should see a success message and the part listed on the dashboard.
 
 ---
 
-## Part 5: Python vs TypeScript Summary
+## Summary: What Makes This Engineering
 
-| Concept | Python | TypeScript |
-|---------|--------|------------|
-| **Type annotation** | `name: str` | `name: string` |
-| **Optional** | `Optional[str] = None` | `name?: string` |
-| **Union** | `str \| None` | `string \| undefined` |
-| **Immutable** | `@dataclass(frozen=True)` | `readonly` properties |
-| **Exception** | `raise ValueError(...)` | `throw new Error(...)` |
-| **Factory function** | `def create_part(...)` | `function createPart(...)` |
-| **Test function** | `def test_creates_part():` | `it('creates a Part', () => {...})` |
-| **Assertion** | `assert x == y` | `expect(x).toBe(y)` |
-| **Run script** | `python file.py` | `tsx file.ts` or `npm run dev` |
-| **Run tests** | `pytest` | `npm test` |
+| Principle | How We Applied It |
+|-----------|-------------------|
+| **Domain First** | `domain.ts` exists before infrastructure |
+| **Dependency Direction** | domain ← parser ← repository ← app |
+| **Tests Before Code** | Every module has tests written first |
+| **Invariants in Domain** | `Part` constructor validates name |
+| **Repository Pattern** | Database details hidden from application |
+| **Error Taxonomy** | Different handlers for different error types |
+| **Thin Controllers** | `app.ts` coordinates only, no logic |
+| **ADR** | Technology choices documented with rationale |
 
 ---
 
-## What You Learned
+## TypeScript vs Python Comparison
 
-1. **TypeScript project setup** — package.json, tsconfig.json
-2. **Type annotations** — string, number, Date, undefined
-3. **Interfaces** — defining shapes of data
-4. **Optional properties** — the `?` modifier
-5. **Readonly properties** — immutability
-6. **Factory functions** — alternative to class constructors
-7. **Optional chaining** — `?.` operator
-8. **Nullish coalescing** — `??` operator
-9. **Vitest testing** — describe, it, expect
-10. **Same SE principles** — domain modeling, invariants, TDD
-
----
-
-## Checklist Before Next Iteration
-
-- [ ] `npm test` passes (8 tests)
-- [ ] `npm run dev` shows Part output
-- [ ] You understand what `interface` does
-- [ ] You understand what `readonly` prevents
-- [ ] You can explain why we use a factory function
+| File | Python | TypeScript |
+|------|--------|------------|
+| Domain | `domain.py` + `class Part` | `domain.ts` + `class Part` |
+| Database | `database.py` + `sqlite3` | `database.ts` + `better-sqlite3` |
+| Repository | `repository.py` | `repository.ts` |
+| Parser | `parser.py` + `ElementTree` | `parser.ts` + `xml2js` |
+| Web | `app.py` + Flask | `app.ts` + Express |
+| Templates | Jinja2 (`{{ }}`) | EJS (`<%= %>`) |
+| Config | `.env` + `python-dotenv` | `.env` + `dotenv` |
+| Tests | `pytest` | `vitest` |
 
 ---
 
-## Next: Iteration 2
+## What's Next?
 
-In the next iteration, we'll add:
-- Repository pattern (just like Python)
-- Classes in TypeScript (public, private)
-- Generics (`<T>`)
-- SQLite database connection
+**Iteration 2:** Add user preferences and sticky machine numbers.
 
-The domain model stays the same. We add persistence.
+Before moving on:
+- [ ] All tests pass
+- [ ] You can import a part
+- [ ] You understand why parser doesn't touch database
+- [ ] You can explain the dependency direction
+
+---
+
+## Questions?
+
+Ask about any line. I'll update this document.
